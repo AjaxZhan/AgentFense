@@ -72,7 +72,7 @@ func (sfs *SandboxFS) Mount(ctx context.Context) error {
 
 	opts := &fs.Options{
 		MountOptions: fuse.MountOptions{
-			AllowOther: false,
+			AllowOther: true, // Allow bwrap processes to access the mount
 			FsName:     "sandboxfs",
 			Name:       "sandboxfs",
 			Debug:      false,

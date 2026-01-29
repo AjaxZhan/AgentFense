@@ -46,13 +46,48 @@ func (pe *permissionEngine) UpdateRules(rules []types.PermissionRule) {
 	copy(pe.rules, rules)
 
 	// Sort by priority (higher priority first)
-	// If priority is equal, file > directory > glob
+	// If priority is equal: file > directory > glob
+	// If type is also equal: more specific patterns first (longer prefix, not starting with **)
 	sort.Slice(pe.rules, func(i, j int) bool {
 		if pe.rules[i].Priority != pe.rules[j].Priority {
 			return pe.rules[i].Priority > pe.rules[j].Priority
 		}
-		return patternTypePriority(pe.rules[i].Type) > patternTypePriority(pe.rules[j].Type)
+		typePriorityI := patternTypePriority(pe.rules[i].Type)
+		typePriorityJ := patternTypePriority(pe.rules[j].Type)
+		if typePriorityI != typePriorityJ {
+			return typePriorityI > typePriorityJ
+		}
+		// For same type, more specific patterns come first
+		return patternSpecificity(pe.rules[i].Pattern) > patternSpecificity(pe.rules[j].Pattern)
 	})
+}
+
+// patternSpecificity calculates how specific a pattern is.
+// Higher values mean more specific (should match first).
+func patternSpecificity(pattern string) int {
+	specificity := 0
+	
+	// Patterns starting with "/" are more specific than "**" patterns
+	if strings.HasPrefix(pattern, "/") {
+		specificity += 100
+	}
+	
+	// Patterns NOT starting with "**" are more specific
+	if !strings.HasPrefix(pattern, "**") {
+		specificity += 50
+	}
+	
+	// Longer prefix (before **) means more specific
+	if idx := strings.Index(pattern, "**"); idx > 0 {
+		specificity += idx
+	}
+	
+	// Exact paths (no wildcards) are most specific
+	if !strings.Contains(pattern, "*") {
+		specificity += 200
+	}
+	
+	return specificity
 }
 
 // patternTypePriority returns the priority of a pattern type.
@@ -129,17 +164,32 @@ func matchDoubleGlob(pattern, path string) bool {
 		return matched
 	}
 
-	// Handle general ** patterns
+	// Handle general ** patterns like "/secrets/**" or "/docs/**"
 	parts := strings.Split(pattern, "**")
 	if len(parts) == 2 {
 		prefix := parts[0]
 		suffix := parts[1]
 
-		hasPrefix := prefix == "" || strings.HasPrefix(path, prefix)
+		// Remove trailing slash from prefix for comparison
+		// e.g., "/secrets/" -> "/secrets"
+		prefixClean := strings.TrimSuffix(prefix, "/")
+		
+		// Check if path matches the prefix exactly (directory itself)
+		// or if path starts with the prefix (files/subdirs inside)
+		if prefixClean != "" {
+			// Match the directory itself: /secrets matches /secrets/**
+			if path == prefixClean {
+				return true
+			}
+			// Match contents: /secrets/file.txt matches /secrets/**
+			if !strings.HasPrefix(path, prefixClean+"/") && !strings.HasPrefix(path, prefix) {
+				return false
+			}
+		}
 		
 		// For suffix, we need to check if it matches the end of the path
 		if suffix == "" {
-			return hasPrefix
+			return true
 		}
 		
 		// If suffix starts with /, it should match exactly from some point
@@ -148,11 +198,11 @@ func matchDoubleGlob(pattern, path string) bool {
 			suffixPattern := strings.TrimPrefix(suffix, "/")
 			basename := filepath.Base(path)
 			matched, _ := filepath.Match(suffixPattern, basename)
-			return hasPrefix && matched
+			return matched
 		}
 		
 		hasSuffix := strings.HasSuffix(path, suffix)
-		return hasPrefix && hasSuffix
+		return hasSuffix
 	}
 	return false
 }
