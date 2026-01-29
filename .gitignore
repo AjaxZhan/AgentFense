@@ -2,3 +2,4 @@ bin/
 .env
 .venv/
 plans/
+sandbox_sdk.egg-info/
