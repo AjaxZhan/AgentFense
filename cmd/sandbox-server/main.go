@@ -110,6 +110,7 @@ func createRuntime(cfg *config.Config) runtime.RuntimeWithExecutor {
 			BwrapPath:      cfg.Runtime.BwrapPath,
 			DefaultTimeout: cfg.Runtime.GetDefaultTimeout(),
 			WorkDir:        cfg.Storage.MountPath,
+			FUSEMountBase:  cfg.Storage.MountPath + "/fuse",
 		}
 		return bwrap.New(bwrapCfg)
 	case "mock":

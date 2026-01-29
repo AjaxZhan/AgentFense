@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/ajaxzhan/sandbox-rls/internal/fs"
 	rt "github.com/ajaxzhan/sandbox-rls/internal/runtime"
 	"github.com/ajaxzhan/sandbox-rls/pkg/types"
 )
@@ -28,6 +30,9 @@ type Config struct {
 	// WorkDir is the base directory for sandbox working directories
 	WorkDir string
 
+	// FUSEMountBase is the base directory for FUSE mount points
+	FUSEMountBase string
+
 	// EnableNetworking allows network access in sandboxes
 	EnableNetworking bool
 }
@@ -38,16 +43,20 @@ func DefaultConfig() *Config {
 		BwrapPath:        "bwrap",
 		DefaultTimeout:   30 * time.Second,
 		WorkDir:          "/tmp/sandbox-rls",
+		FUSEMountBase:    "/tmp/sandbox-rls/fuse",
 		EnableNetworking: false,
 	}
 }
 
 // sandboxState holds internal state for a sandbox.
 type sandboxState struct {
-	sandbox *types.Sandbox
-	config  *rt.SandboxConfig
-	cmd     *exec.Cmd // The running process (if any)
-	cancel  context.CancelFunc
+	sandbox    *types.Sandbox
+	config     *rt.SandboxConfig
+	cmd        *exec.Cmd // The running process (if any)
+	cancel     context.CancelFunc
+	fuseFS     *fs.SandboxFS      // FUSE filesystem instance
+	fuseCancel context.CancelFunc // Cancel function for FUSE mount
+	fuseMountPoint string          // Path where FUSE is mounted
 }
 
 // BwrapRuntime implements runtime.RuntimeWithExecutor using bubblewrap.
@@ -62,6 +71,11 @@ type BwrapRuntime struct {
 func New(config *Config) *BwrapRuntime {
 	if config == nil {
 		config = DefaultConfig()
+	}
+
+	// Ensure FUSE mount base directory exists
+	if config.FUSEMountBase != "" {
+		os.MkdirAll(config.FUSEMountBase, 0755)
 	}
 
 	return &BwrapRuntime{
@@ -132,9 +146,60 @@ func (r *BwrapRuntime) Start(ctx context.Context, sandboxID string) error {
 		return types.ErrAlreadyRunning
 	}
 
-	// On Linux, we would start a long-running bwrap process here.
-	// For now, we just mark it as running since exec will spawn processes as needed.
-	// In a full implementation, we might keep a shell process alive in the sandbox.
+	// On Linux, set up FUSE filesystem for permission enforcement
+	// On other systems, skip FUSE (compatibility mode - no permission enforcement)
+	if r.isLinux && state.config.CodebasePath != "" {
+		// Create FUSE mount point directory
+		fuseMountPoint := filepath.Join(r.config.FUSEMountBase, sandboxID)
+		if err := os.MkdirAll(fuseMountPoint, 0755); err != nil {
+			return fmt.Errorf("failed to create FUSE mount point: %w", err)
+		}
+
+		// Create FUSE filesystem with permission rules
+		fuseConfig := &fs.SandboxFSConfig{
+			SourceDir:  state.config.CodebasePath,
+			MountPoint: fuseMountPoint,
+			Rules:      state.config.Permissions,
+		}
+
+		sandboxFS, err := fs.NewSandboxFS(fuseConfig)
+		if err != nil {
+			os.RemoveAll(fuseMountPoint)
+			return fmt.Errorf("failed to create FUSE filesystem: %w", err)
+		}
+
+		// Start FUSE mount in a goroutine
+		fuseCtx, fuseCancel := context.WithCancel(context.Background())
+		fuseReady := make(chan error, 1)
+
+		go func() {
+			// Signal that we're starting
+			fuseReady <- nil
+			// This blocks until fuseCtx is cancelled
+			if err := sandboxFS.Mount(fuseCtx); err != nil && err != context.Canceled {
+				// Log error but don't fail - the context was cancelled
+				fmt.Printf("FUSE mount error for sandbox %s: %v\n", sandboxID, err)
+			}
+		}()
+
+		// Wait for FUSE mount goroutine to start
+		<-fuseReady
+
+		// Give FUSE a moment to actually mount
+		time.Sleep(100 * time.Millisecond)
+
+		// Verify FUSE mounted successfully
+		if !sandboxFS.IsMounted() {
+			fuseCancel()
+			os.RemoveAll(fuseMountPoint)
+			return fmt.Errorf("FUSE filesystem failed to mount")
+		}
+
+		// Store FUSE state
+		state.fuseFS = sandboxFS
+		state.fuseCancel = fuseCancel
+		state.fuseMountPoint = fuseMountPoint
+	}
 
 	state.sandbox.Status = types.StatusRunning
 	now := time.Now()
@@ -168,6 +233,23 @@ func (r *BwrapRuntime) Stop(ctx context.Context, sandboxID string) error {
 		state.cmd = nil
 	}
 
+	// Unmount FUSE filesystem
+	if state.fuseCancel != nil {
+		state.fuseCancel()
+		state.fuseCancel = nil
+	}
+
+	// Give FUSE a moment to unmount
+	time.Sleep(100 * time.Millisecond)
+
+	// Clean up mount point directory
+	if state.fuseMountPoint != "" {
+		os.RemoveAll(state.fuseMountPoint)
+		state.fuseMountPoint = ""
+	}
+
+	state.fuseFS = nil
+
 	state.sandbox.Status = types.StatusStopped
 	now := time.Now()
 	state.sandbox.StoppedAt = &now
@@ -191,6 +273,19 @@ func (r *BwrapRuntime) Destroy(ctx context.Context, sandboxID string) error {
 	}
 	if state.cmd != nil && state.cmd.Process != nil {
 		_ = state.cmd.Process.Kill()
+	}
+
+	// Unmount FUSE filesystem
+	if state.fuseCancel != nil {
+		state.fuseCancel()
+	}
+
+	// Give FUSE a moment to unmount
+	time.Sleep(100 * time.Millisecond)
+
+	// Clean up mount point directory
+	if state.fuseMountPoint != "" {
+		os.RemoveAll(state.fuseMountPoint)
 	}
 
 	delete(r.states, sandboxID)
@@ -240,6 +335,7 @@ func (r *BwrapRuntime) Exec(ctx context.Context, sandboxID string, req *types.Ex
 	}
 
 	config := state.config
+	fuseMountPoint := state.fuseMountPoint
 	r.mu.RUnlock()
 
 	// Set timeout if specified
@@ -255,10 +351,10 @@ func (r *BwrapRuntime) Exec(ctx context.Context, sandboxID string, req *types.Ex
 
 	var cmd *exec.Cmd
 	if r.isLinux {
-		cmd = r.buildBwrapCommand(ctx, config, req)
+		cmd = r.buildBwrapCommand(ctx, config, req, fuseMountPoint)
 	} else {
-		// Compatibility mode: run command directly (no isolation)
-		cmd = r.buildLocalCommand(ctx, config, req)
+		// Compatibility mode: run command directly with FUSE mount
+		cmd = r.buildLocalCommand(ctx, config, req, fuseMountPoint)
 	}
 
 	// Capture output
@@ -308,6 +404,7 @@ func (r *BwrapRuntime) ExecStream(ctx context.Context, sandboxID string, req *ty
 	}
 
 	config := state.config
+	fuseMountPoint := state.fuseMountPoint
 	r.mu.RUnlock()
 
 	// Set timeout if specified
@@ -321,9 +418,9 @@ func (r *BwrapRuntime) ExecStream(ctx context.Context, sandboxID string, req *ty
 
 	var cmd *exec.Cmd
 	if r.isLinux {
-		cmd = r.buildBwrapCommand(ctx, config, req)
+		cmd = r.buildBwrapCommand(ctx, config, req, fuseMountPoint)
 	} else {
-		cmd = r.buildLocalCommand(ctx, config, req)
+		cmd = r.buildLocalCommand(ctx, config, req, fuseMountPoint)
 	}
 
 	// Get stdout pipe
@@ -363,7 +460,8 @@ func (r *BwrapRuntime) ExecStream(ctx context.Context, sandboxID string, req *ty
 }
 
 // buildBwrapCommand builds a bwrap command for Linux.
-func (r *BwrapRuntime) buildBwrapCommand(ctx context.Context, config *rt.SandboxConfig, req *types.ExecRequest) *exec.Cmd {
+// fuseMountPoint is the FUSE-mounted directory with permission enforcement.
+func (r *BwrapRuntime) buildBwrapCommand(ctx context.Context, config *rt.SandboxConfig, req *types.ExecRequest, fuseMountPoint string) *exec.Cmd {
 	args := []string{
 		"--ro-bind", "/usr", "/usr",
 		"--ro-bind", "/lib", "/lib",
@@ -384,13 +482,14 @@ func (r *BwrapRuntime) buildBwrapCommand(ctx context.Context, config *rt.Sandbox
 		args = append(args, "--unshare-net")
 	}
 
-	// Bind the codebase
-	if config.CodebasePath != "" {
+	// Bind the FUSE mount point (with permission enforcement) to /workspace
+	if fuseMountPoint != "" {
 		workdir := "/workspace"
 		if config.MountPoint != "" {
 			workdir = config.MountPoint
 		}
-		args = append(args, "--bind", config.CodebasePath, workdir)
+		// Use the FUSE mount point which enforces permissions
+		args = append(args, "--bind", fuseMountPoint, workdir)
 		args = append(args, "--chdir", workdir)
 	}
 
@@ -414,12 +513,15 @@ func (r *BwrapRuntime) buildBwrapCommand(ctx context.Context, config *rt.Sandbox
 }
 
 // buildLocalCommand builds a local command for non-Linux systems (development mode).
-func (r *BwrapRuntime) buildLocalCommand(ctx context.Context, config *rt.SandboxConfig, req *types.ExecRequest) *exec.Cmd {
+// fuseMountPoint is the FUSE-mounted directory with permission enforcement.
+func (r *BwrapRuntime) buildLocalCommand(ctx context.Context, config *rt.SandboxConfig, req *types.ExecRequest, fuseMountPoint string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", req.Command)
 
-	// Set working directory
+	// Set working directory - prefer FUSE mount point for permission enforcement
 	if req.WorkDir != "" {
 		cmd.Dir = req.WorkDir
+	} else if fuseMountPoint != "" {
+		cmd.Dir = fuseMountPoint
 	} else if config.CodebasePath != "" {
 		cmd.Dir = config.CodebasePath
 	}
