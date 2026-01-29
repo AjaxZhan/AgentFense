@@ -4,6 +4,14 @@ Fine-grained filesystem permissions for AI agent sandboxes.
 
 Sandbox RLS lets you run untrusted (or simply “not fully trusted”) AI agent code **against a real codebase** while enforcing **path-based, least-privilege access** at the file level.
 
+## Why it matters
+
+The best “agent interface” keeps winning: **a bash-capable agent + a filesystem**. It’s simple, universal, and already supported by every toolchain we use.
+
+FUSE (and projects like “agentfs”) show why: once you can *mount* a world, you can make an agent productive with plain old `ls`, `cat`, `grep`, and `find`. But there’s a missing layer of infrastructure: the filesystem is usually **all-or-nothing**. If you mount a real repo, you often mount *everything*.
+
+Sandbox RLS fills that gap: a filesystem-backed sandbox that can make paths **writable**, **read-only**, **list-only**, or completely **invisible**—so you can give an agent a real codebase without giving it full trust.
+
 ## Why this exists (the pain)
 
 When you give an agent a repository, you usually end up with one of these bad choices:
@@ -58,6 +66,11 @@ Rule priority: **more specific wins** (file-level > directory-level > glob).
 - **Lightweight isolation**: bubblewrap (`bwrap`) runtime for fast sandbox startup
 - **Runtime abstraction**: extensible design (future Docker/gVisor support)
 - **Multi-sandbox codebase sharing**: same folder can be mounted by multiple agents with different permissions
+
+## Roadmap
+
+- [ ] **Go SDK**: first-class Go client (API parity with Python SDK)
+- [ ] **Codebase for any data source**: mount non-filesystem data as a `Codebase` (e.g. REST APIs, databases, object stores), so agents can work with them using standard filesystem operations
 
 ## Architecture
 
@@ -453,6 +466,12 @@ This project follows TDD (Test-Driven Development):
 1. **RED**: Write a failing test
 2. **GREEN**: Write minimal code to pass
 3. **REFACTOR**: Improve code quality
+
+## References
+
+- `https://jakobemmerling.de/posts/fuse-is-all-you-need/`
+- `https://github.com/tursodatabase/agentfs`
+- `https://github.com/anthropics/skills`
 
 ## License
 
