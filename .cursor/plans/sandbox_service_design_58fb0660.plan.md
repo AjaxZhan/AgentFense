@@ -10,16 +10,16 @@ todos:
     status: completed
   - id: trackA-test-runtime
     content: "Track A [TDD]: 编写 Runtime 接口测试 (Create/Start/Stop/Destroy)"
-    status: pending
+    status: completed
   - id: trackA-impl-bwrap
     content: "Track A [实现]: 实现 BwrapRuntime"
-    status: pending
+    status: completed
   - id: trackA-test-exec
     content: "Track A [TDD]: 编写 Exec 命令执行测试"
-    status: pending
+    status: completed
   - id: trackA-impl-exec
     content: "Track A [实现]: 实现 Executor (在 Sandbox 内执行命令)"
-    status: pending
+    status: completed
   - id: trackB-test-permission
     content: "Track B [TDD]: 编写权限引擎测试 (四级权限 + 优先级匹配)"
     status: completed
