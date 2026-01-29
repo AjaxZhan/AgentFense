@@ -180,12 +180,18 @@ func (s *SandboxServiceServer) CreateSandbox(ctx context.Context, req *pb.Create
 	}
 
 	// Verify codebase exists
-	cb, err := s.codebaseManager.GetCodebase(ctx, req.CodebaseId)
+	_, err := s.codebaseManager.GetCodebase(ctx, req.CodebaseId)
 	if err != nil {
 		if errors.Is(err, types.ErrCodebaseNotFound) {
 			return nil, status.Error(codes.NotFound, "codebase not found")
 		}
 		return nil, status.Errorf(codes.Internal, "failed to get codebase: %v", err)
+	}
+
+	// Get the actual filesystem path for the codebase
+	codebasePath, err := s.codebaseManager.GetCodebasePath(ctx, req.CodebaseId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get codebase path: %v", err)
 	}
 
 	// Convert proto permissions to internal types
@@ -203,7 +209,7 @@ func (s *SandboxServiceServer) CreateSandbox(ctx context.Context, req *pb.Create
 	config := &sbruntime.SandboxConfig{
 		ID:           generateSandboxID(),
 		CodebaseID:   req.CodebaseId,
-		CodebasePath: cb.Path,
+		CodebasePath: codebasePath,
 		Permissions:  permissions,
 		Labels:       req.Labels,
 	}

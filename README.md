@@ -1,4 +1,4 @@
-# Sandbox RLS (Row-Level Security)
+# Sandbox RLS
 
 A sandbox infrastructure service for AI Agents with fine-grained file permission control.
 
@@ -61,56 +61,210 @@ go build -o bin/sandbox-server ./cmd/sandbox-server
 ### Running the Server
 
 ```bash
+# Create required directories
+sudo mkdir -p /var/lib/sandbox/{codebases,mounts}
+
+# Start the server (gRPC on :9000, REST on :8080)
 ./bin/sandbox-server -config configs/sandbox-server.yaml
 ```
 
-### Using the SDK
+### Try It Out
 
-#### Go SDK
+The complete workflow is: **Create Codebase → Upload Files → Create Sandbox → Start Sandbox → Execute Commands → Cleanup**
 
-```go
-import "github.com/ajaxzhan/sandbox-rls/sdk/go"
+#### Option 1: Using REST API (curl)
 
-client, _ := sandbox.NewClient("localhost:9000")
+```bash
+# 1. Create a codebase (a folder to store your code)
+curl -X POST http://localhost:8080/v1/codebases \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-project", "owner_id": "user_001"}'
 
-// Create a sandbox
-sb, _ := client.CreateSandbox(ctx, &sandbox.CreateSandboxRequest{
-    CodebaseID: "cb_123",
-    Permissions: []sandbox.PermissionRule{
-        {Pattern: "/docs/**", Permission: sandbox.PermWrite},
-        {Pattern: "**/*.py", Permission: sandbox.PermRead},
-    },
-})
+# Response example:
+# {"id":"cb_abc123","name":"my-project","owner_id":"user_001",...}
 
-// Start the sandbox
-client.StartSandbox(ctx, sb.ID)
+# 2. Create a sandbox with permission rules
+# (Use the codebase_id from step 1)
+curl -X POST http://localhost:8080/v1/sandboxes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "codebase_id": "cb_bbc5f38246cc1544",
+    "permissions": [
+      {"pattern": "**/*", "permission": "PERMISSION_READ"},
+      {"pattern": "/docs/**", "permission": "PERMISSION_WRITE"}
+    ]
+  }'
 
-// Execute command
-result, _ := client.Exec(ctx, sb.ID, &sandbox.ExecRequest{
-    Command: "ls -la /workspace",
-})
-fmt.Println(result.Stdout)
+# Response example:
+# {"id":"sb_xyz789","codebase_id":"cb_abc123","status":"SANDBOX_STATUS_PENDING",...}
+
+# 3. Start the sandbox
+curl -X POST http://localhost:8080/v1/sandboxes/sb_7f95a3292defc075/start
+
+# 4. Execute a command in the sandbox
+curl -X POST http://localhost:8080/v1/sandboxes/sb_7f95a3292defc075/exec \
+  -H "Content-Type: application/json" \
+  -d '{"command": "ls -la /workspace"}'
+
+# Response example:
+# {"stdout":"total 0\ndrwxr-xr-x 2 root root 40 ...\n","stderr":"","exit_code":0,...}
+
+# 5. Clean up: destroy the sandbox
+curl -X DELETE http://localhost:8080/v1/sandboxes/sb_xyz789
+
+# 6. (Optional) Delete the codebase
+curl -X DELETE http://localhost:8080/v1/codebases/cb_abc123
 ```
 
-#### Python SDK
+#### Option 2: Using Python SDK
+
+First, install the SDK:
+
+```bash
+cd sdk/python
+pip install -e .
+```
+
+Then run this complete example:
 
 ```python
 from sandbox_sdk import SandboxClient
 
+# Connect to the server (gRPC endpoint)
 client = SandboxClient(endpoint="localhost:9000")
 
-sandbox = client.create_sandbox(
-    codebase_id="cb_123",
-    permissions=[
-        {"pattern": "/docs/**", "permission": "write"},
-        {"pattern": "**/*.py", "permission": "read"},
-    ]
+# Step 1: Create a codebase
+codebase = client.create_codebase(
+    name="my-project",
+    owner_id="user_001"
+)
+print(f"Created codebase: {codebase.id}")
+
+# Step 2: (Optional) Upload some files
+client.upload_file(
+    codebase_id=codebase.id,
+    file_path="hello.txt",
+    content=b"Hello from sandbox!"
 )
 
+# Step 3: Create a sandbox with permission rules
+sandbox = client.create_sandbox(
+    codebase_id=codebase.id,
+    permissions=[
+        {"pattern": "**/*", "permission": "read"},      # Default: read-only
+        {"pattern": "/docs/**", "permission": "write"}, # /docs: writable
+        {"pattern": "**/.env", "permission": "none"},   # .env files: hidden
+    ]
+)
+print(f"Created sandbox: {sandbox.id}")
+
+# Step 4: Start the sandbox
 client.start_sandbox(sandbox.id)
+print("Sandbox started!")
+
+# Step 5: Execute commands
+result = client.exec(sandbox.id, command="cat /workspace/hello.txt")
+print(f"Output: {result.stdout}")
 
 result = client.exec(sandbox.id, command="ls -la /workspace")
-print(result.stdout)
+print(f"Files:\n{result.stdout}")
+
+# Step 6: Try to write (should work in /docs)
+result = client.exec(sandbox.id, command="echo 'test' > /workspace/docs/note.txt")
+print(f"Write to /docs: exit_code={result.exit_code}")
+
+# Step 7: Clean up
+client.destroy_sandbox(sandbox.id)
+client.delete_codebase(codebase.id)
+print("Cleanup complete!")
+```
+
+#### Option 3: Using Go SDK
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    sandbox "github.com/ajaxzhan/sandbox-rls/sdk/go"
+)
+
+func main() {
+    ctx := context.Background()
+    client, err := sandbox.NewClient("localhost:9000")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+
+    // Step 1: Create a codebase
+    cb, _ := client.CreateCodebase(ctx, &sandbox.CreateCodebaseRequest{
+        Name:    "my-project",
+        OwnerID: "user_001",
+    })
+    fmt.Printf("Created codebase: %s\n", cb.ID)
+
+    // Step 2: Create a sandbox
+    sb, _ := client.CreateSandbox(ctx, &sandbox.CreateSandboxRequest{
+        CodebaseID: cb.ID,
+        Permissions: []sandbox.PermissionRule{
+            {Pattern: "**/*", Permission: sandbox.PermRead},
+            {Pattern: "/docs/**", Permission: sandbox.PermWrite},
+        },
+    })
+    fmt.Printf("Created sandbox: %s\n", sb.ID)
+
+    // Step 3: Start and execute
+    client.StartSandbox(ctx, sb.ID)
+    
+    result, _ := client.Exec(ctx, sb.ID, &sandbox.ExecRequest{
+        Command: "ls -la /workspace",
+    })
+    fmt.Printf("Output:\n%s\n", result.Stdout)
+
+    // Step 4: Cleanup
+    client.DestroySandbox(ctx, sb.ID)
+    client.DeleteCodebase(ctx, cb.ID)
+}
+```
+
+### Verify Permission Control
+
+To see the permission system in action:
+
+```bash
+# Create a codebase and upload sensitive files
+curl -X POST http://localhost:8080/v1/codebases \
+  -d '{"name": "secure-project", "owner_id": "user_001"}'
+
+# Create sandbox with restrictive permissions
+curl -X POST http://localhost:8080/v1/sandboxes \
+  -d '{
+    "codebase_id": "<CODEBASE_ID>",
+    "permissions": [
+      {"pattern": "**/*.py", "permission": "PERMISSION_READ"},
+      {"pattern": "**/secrets/**", "permission": "PERMISSION_NONE"},
+      {"pattern": "/output/**", "permission": "PERMISSION_WRITE"}
+    ]
+  }'
+
+# Start sandbox and test permissions
+curl -X POST http://localhost:8080/v1/sandboxes/<SANDBOX_ID>/start
+
+# Can read Python files
+curl -X POST http://localhost:8080/v1/sandboxes/<SANDBOX_ID>/exec \
+  -d '{"command": "cat /workspace/main.py"}'
+
+# Cannot see secrets directory (will appear empty or hidden)
+curl -X POST http://localhost:8080/v1/sandboxes/<SANDBOX_ID>/exec \
+  -d '{"command": "ls /workspace/secrets"}'
+
+# Can write to /output directory
+curl -X POST http://localhost:8080/v1/sandboxes/<SANDBOX_ID>/exec \
+  -d '{"command": "echo result > /workspace/output/result.txt"}'
 ```
 
 ## Project Structure
