@@ -426,7 +426,7 @@ func (r *sandboxRoot) Create(ctx context.Context, name string, flags uint32, mod
 		virtualPath: virtualPath,
 	}
 
-	return r.NewInode(ctx, child, fs.StableAttr{Mode: fuse.S_IFREG}), fs.NewLoopbackFile(fd), 0, fs.OK
+	return r.NewInode(ctx, child, fs.StableAttr{Mode: fuse.S_IFREG}), &sandboxFileHandle{fd: fd}, 0, fs.OK
 }
 
 // Symlink implements fs.NodeSymlinker.
@@ -712,7 +712,7 @@ func (d *sandboxDir) Create(ctx context.Context, name string, flags uint32, mode
 		virtualPath: virtualPath,
 	}
 
-	return d.NewInode(ctx, child, fs.StableAttr{Mode: fuse.S_IFREG}), fs.NewLoopbackFile(fd), 0, fs.OK
+	return d.NewInode(ctx, child, fs.StableAttr{Mode: fuse.S_IFREG}), &sandboxFileHandle{fd: fd}, 0, fs.OK
 }
 
 // sandboxFile represents a regular file in the sandbox filesystem.
@@ -800,14 +800,84 @@ func (f *sandboxFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle,
 	// Following go-fuse's loopback implementation
 	flags = flags &^ (syscall.O_APPEND | FMODE_EXEC)
 
-	// Use syscall.Open directly like go-fuse's loopback does
+	// Use syscall.Open directly
 	fd, err := syscall.Open(f.sourcePath, int(flags), 0)
 	if err != nil {
 		return nil, 0, toErrno(err)
 	}
 
-	// Wrap with NewLoopbackFile for proper file handle management
-	return fs.NewLoopbackFile(fd), 0, fs.OK
+	// Use our own file handle implementation that doesn't rely on splice
+	return &sandboxFileHandle{fd: fd}, 0, fs.OK
+}
+
+// sandboxFileHandle is a simple file handle that uses standard read/write operations
+// instead of splice-based operations (which may not work in all configurations).
+type sandboxFileHandle struct {
+	fd int
+}
+
+var _ = (fs.FileReader)((*sandboxFileHandle)(nil))
+var _ = (fs.FileWriter)((*sandboxFileHandle)(nil))
+var _ = (fs.FileReleaser)((*sandboxFileHandle)(nil))
+var _ = (fs.FileFlusher)((*sandboxFileHandle)(nil))
+var _ = (fs.FileGetattrer)((*sandboxFileHandle)(nil))
+var _ = (fs.FileLseeker)((*sandboxFileHandle)(nil))
+
+// Read implements fs.FileReader using standard pread instead of splice.
+func (fh *sandboxFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	n, err := syscall.Pread(fh.fd, dest, off)
+	if err != nil && err != syscall.Errno(0) {
+		return nil, toErrno(err)
+	}
+	return fuse.ReadResultData(dest[:n]), fs.OK
+}
+
+// Write implements fs.FileWriter.
+func (fh *sandboxFileHandle) Write(ctx context.Context, data []byte, off int64) (uint32, syscall.Errno) {
+	n, err := syscall.Pwrite(fh.fd, data, off)
+	if err != nil {
+		return 0, toErrno(err)
+	}
+	return uint32(n), fs.OK
+}
+
+// Release implements fs.FileReleaser.
+func (fh *sandboxFileHandle) Release(ctx context.Context) syscall.Errno {
+	if fh.fd != -1 {
+		err := syscall.Close(fh.fd)
+		fh.fd = -1
+		return toErrno(err)
+	}
+	return syscall.EBADF
+}
+
+// Flush implements fs.FileFlusher.
+func (fh *sandboxFileHandle) Flush(ctx context.Context) syscall.Errno {
+	// Dup and close to flush without closing the original fd
+	newFd, err := syscall.Dup(fh.fd)
+	if err != nil {
+		return toErrno(err)
+	}
+	return toErrno(syscall.Close(newFd))
+}
+
+// Getattr implements fs.FileGetattrer.
+func (fh *sandboxFileHandle) Getattr(ctx context.Context, out *fuse.AttrOut) syscall.Errno {
+	var st syscall.Stat_t
+	if err := syscall.Fstat(fh.fd, &st); err != nil {
+		return toErrno(err)
+	}
+	out.Attr.FromStat(&st)
+	return fs.OK
+}
+
+// Lseek implements fs.FileLseeker.
+func (fh *sandboxFileHandle) Lseek(ctx context.Context, off uint64, whence uint32) (uint64, syscall.Errno) {
+	n, err := syscall.Seek(fh.fd, int64(off), int(whence))
+	if err != nil {
+		return 0, toErrno(err)
+	}
+	return uint64(n), fs.OK
 }
 
 // sandboxSymlink represents a symbolic link in the sandbox filesystem.
