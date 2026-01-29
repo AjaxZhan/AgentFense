@@ -67,10 +67,24 @@ Rule priority: **more specific wins** (file-level > directory-level > glob).
 - **Runtime abstraction**: extensible design (future Docker/gVisor support)
 - **Multi-sandbox codebase sharing**: same folder can be mounted by multiple agents with different permissions
 
+## Comparison
+
+The table below focuses on the agent-centric question: **can you safely run untrusted code against a real codebase with least-privilege filesystem access?**
+
+| Capability | **Sandbox-RLS** | **E2B** | **Anthropic `sandbox-runtime` (`srt`)** | **Docker** | **Other sandboxes** |
+|---|---|---|---|---|---|
+| Primary focus | Anything as FS + path RLS | Hosted execution sandbox | OS-level process sandbox | Container isolation | Stronger isolation boundary |
+| Real repo as a mounted workspace | ✅ | ⚠️ (sandbox FS, not “codebase view”) | ⚠️ (wrap commands, not a codebase layer) | ✅ | ⚠️ varies |
+| Path-based least privilege | ✅ (glob + priority) | ❌ | ✅ (allow/deny) | ⚠️ (coarse by default) | ⚠️ varies |
+| Hidden paths (`none`, not visible in `ls`) | ✅ | ❌ | ⚠️ (blocked, not “invisible”) | ❌ | ⚠️ varies |
+| List-only paths (`view`) | ✅ | ❌ | ❌ | ❌ | ⚠️ varies |
+| Share one codebase across multiple sandboxes | ✅ | ⚠️ | ⚠️ | ⚠️ | ⚠️ varies |
+| Network restrictions | ⚠️ (not the core feature) | ✅ | ✅ | ✅ (needs config) | ✅ (needs config) |
+
 ## Roadmap
 
-- [ ] **Go SDK**: first-class Go client (API parity with Python SDK)
-- [ ] **Codebase for any data source**: mount non-filesystem data as a `Codebase` (e.g. REST APIs, databases, object stores), so agents can work with them using standard filesystem operations
+- [ ] 1. **Go SDK Support**: first-class Go client (API parity with Python SDK)
+- [ ] 2. **Codebase for any data source**: mount non-filesystem data as a `Codebase` (e.g. REST APIs, RDB, JSON, S3, ...), so agents can work with them using standard filesystem operations
 
 ## Architecture
 
