@@ -64,13 +64,13 @@ def _proto_to_pattern_type(pt: common_pb2.PatternType) -> PatternType:
     return mapping.get(pt, PatternType.GLOB)
 
 
-def _proto_to_status(status: sandbox_pb2.SandboxStatus) -> SandboxStatus:
+def _proto_to_status(status: common_pb2.SandboxStatus) -> SandboxStatus:
     """Convert protobuf SandboxStatus to enum."""
     mapping = {
-        sandbox_pb2.SANDBOX_STATUS_PENDING: SandboxStatus.PENDING,
-        sandbox_pb2.SANDBOX_STATUS_RUNNING: SandboxStatus.RUNNING,
-        sandbox_pb2.SANDBOX_STATUS_STOPPED: SandboxStatus.STOPPED,
-        sandbox_pb2.SANDBOX_STATUS_ERROR: SandboxStatus.ERROR,
+        common_pb2.SANDBOX_STATUS_PENDING: SandboxStatus.PENDING,
+        common_pb2.SANDBOX_STATUS_RUNNING: SandboxStatus.RUNNING,
+        common_pb2.SANDBOX_STATUS_STOPPED: SandboxStatus.STOPPED,
+        common_pb2.SANDBOX_STATUS_ERROR: SandboxStatus.ERROR,
     }
     return mapping.get(status, SandboxStatus.PENDING)
 

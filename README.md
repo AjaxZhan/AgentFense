@@ -88,7 +88,7 @@ curl -X POST http://localhost:8080/v1/codebases \
 curl -X POST http://localhost:8080/v1/sandboxes \
   -H "Content-Type: application/json" \
   -d '{
-    "codebase_id": "cb_bbc5f38246cc1544",
+    "codebase_id": "cb_9bf1bb9e44dad1ed",
     "permissions": [
       {"pattern": "**/*", "permission": "PERMISSION_READ"},
       {"pattern": "/docs/**", "permission": "PERMISSION_WRITE"}
@@ -99,10 +99,10 @@ curl -X POST http://localhost:8080/v1/sandboxes \
 # {"id":"sb_xyz789","codebase_id":"cb_abc123","status":"SANDBOX_STATUS_PENDING",...}
 
 # 3. Start the sandbox
-curl -X POST http://localhost:8080/v1/sandboxes/sb_7f95a3292defc075/start
+curl -X POST http://localhost:8080/v1/sandboxes/sb_8f4e27a30c41ccb1/start
 
 # 4. Execute a command in the sandbox
-curl -X POST http://localhost:8080/v1/sandboxes/sb_7f95a3292defc075/exec \
+curl -X POST http://localhost:8080/v1/sandboxes/sb_8f4e27a30c41ccb1/exec \
   -H "Content-Type: application/json" \
   -d '{"command": "ls -la /workspace"}'
 
@@ -110,7 +110,7 @@ curl -X POST http://localhost:8080/v1/sandboxes/sb_7f95a3292defc075/exec \
 # {"stdout":"total 0\ndrwxr-xr-x 2 root root 40 ...\n","stderr":"","exit_code":0,...}
 
 # 5. Clean up: destroy the sandbox
-curl -X DELETE http://localhost:8080/v1/sandboxes/sb_xyz789
+curl -X DELETE http://localhost:8080/v1/sandboxes/sb_8f4e27a30c41ccb1
 
 # 6. (Optional) Delete the codebase
 curl -X DELETE http://localhost:8080/v1/codebases/cb_abc123
