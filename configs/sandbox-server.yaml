@@ -15,14 +15,24 @@ storage:
   db_path: "/var/lib/sandbox/metadata.db"
 
 runtime:
-  # Runtime type: bwrap, docker
+  # Runtime type: bwrap, docker, mock
   type: "bwrap"
-  # bwrap binary path
+  # bwrap binary path (for bwrap runtime)
   bwrap_path: "/usr/bin/bwrap"
   # Default command timeout
   default_timeout: "30s"
   # Maximum command timeout
   max_timeout: "10m"
+  # Docker runtime configuration
+  docker:
+    # Docker daemon socket (default: uses DOCKER_HOST env or unix:///var/run/docker.sock)
+    host: ""
+    # Default container image
+    default_image: "ubuntu:22.04"
+    # Default network mode: "none", "bridge", "host"
+    network_mode: "none"
+    # Allow network access in sandboxes
+    enable_networking: false
 
 sandbox:
   # Default sandbox expiration (0 = no expiration)

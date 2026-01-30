@@ -33,10 +33,19 @@ type StorageConfig struct {
 
 // RuntimeConfig holds runtime configuration.
 type RuntimeConfig struct {
-	Type           string `yaml:"type"`
-	BwrapPath      string `yaml:"bwrap_path"`
-	DefaultTimeout string `yaml:"default_timeout"`
-	MaxTimeout     string `yaml:"max_timeout"`
+	Type           string             `yaml:"type"` // "bwrap", "docker", "mock"
+	BwrapPath      string             `yaml:"bwrap_path"`
+	DefaultTimeout string             `yaml:"default_timeout"`
+	MaxTimeout     string             `yaml:"max_timeout"`
+	Docker         DockerRuntimeConfig `yaml:"docker"` // Docker-specific configuration
+}
+
+// DockerRuntimeConfig holds Docker runtime-specific configuration.
+type DockerRuntimeConfig struct {
+	Host             string `yaml:"host"`              // Docker daemon socket (default: uses DOCKER_HOST env or unix:///var/run/docker.sock)
+	DefaultImage     string `yaml:"default_image"`     // Default container image (default: "ubuntu:22.04")
+	NetworkMode      string `yaml:"network_mode"`      // Default network mode: "none", "bridge", "host" (default: "none")
+	EnableNetworking bool   `yaml:"enable_networking"` // Allow network access in sandboxes (default: false)
 }
 
 // SandboxConfig holds sandbox defaults configuration.
@@ -69,6 +78,12 @@ func DefaultConfig() *Config {
 			BwrapPath:      "bwrap",
 			DefaultTimeout: "30s",
 			MaxTimeout:     "10m",
+			Docker: DockerRuntimeConfig{
+				Host:             "", // Uses default Docker socket
+				DefaultImage:     "ubuntu:22.04",
+				NetworkMode:      "none",
+				EnableNetworking: false,
+			},
 		},
 		Sandbox: SandboxConfig{
 			DefaultExpiration: "24h",

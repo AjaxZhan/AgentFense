@@ -110,6 +110,21 @@ service SandboxService {
   rpc SessionExecStream(SessionExecRequest) returns (stream ExecOutput);
 }
 
+// RuntimeType specifies the sandbox runtime implementation
+enum RuntimeType {
+  RUNTIME_TYPE_UNSPECIFIED = 0;
+  RUNTIME_TYPE_BWRAP = 1;
+  RUNTIME_TYPE_DOCKER = 2;
+}
+
+// ResourceLimits defines resource constraints for a sandbox
+message ResourceLimits {
+  int64 memory_bytes = 1;  // Memory limit in bytes (e.g., 512*1024*1024 for 512MB)
+  int64 cpu_quota = 2;     // CPU quota in microseconds per 100ms period
+  int64 cpu_shares = 3;    // CPU shares (relative weight)
+  int64 pids_limit = 4;    // Maximum number of processes
+}
+
 // Sandbox represents an isolated execution environment
 message Sandbox {
   string id = 1;
@@ -121,6 +136,10 @@ message Sandbox {
   google.protobuf.Timestamp started_at = 7;
   google.protobuf.Timestamp stopped_at = 8;
   google.protobuf.Timestamp expires_at = 9;
+  // Runtime configuration
+  RuntimeType runtime = 10;       // Runtime type used
+  string image = 11;              // Docker image (for docker runtime)
+  ResourceLimits resources = 12;  // Resource limits
 }
 
 // CreateSandboxRequest
@@ -129,6 +148,10 @@ message CreateSandboxRequest {
   repeated PermissionRule permissions = 2;
   google.protobuf.Duration expires_in = 3;
   map<string, string> labels = 4;
+  // Runtime configuration
+  RuntimeType runtime = 5;       // Runtime type: bwrap, docker
+  string image = 6;              // Docker image (for docker runtime)
+  ResourceLimits resources = 7;  // Resource limits
 }
 
 // GetSandboxRequest

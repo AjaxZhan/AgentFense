@@ -9,12 +9,17 @@ import (
 
 // SandboxConfig contains configuration for creating a new sandbox.
 type SandboxConfig struct {
-	ID          string
-	CodebaseID  string
+	ID           string
+	CodebaseID   string
 	CodebasePath string // Actual filesystem path to the codebase
-	Permissions []types.PermissionRule
-	MountPoint  string // Where to mount the FUSE filesystem
-	Labels      map[string]string
+	Permissions  []types.PermissionRule
+	MountPoint   string // Where to mount the FUSE filesystem
+	Labels       map[string]string
+
+	// Runtime configuration
+	Runtime   types.RuntimeType    // Runtime type: bwrap, docker
+	Resources *types.ResourceLimits // Resource limits (memory, CPU, pids)
+	Docker    *types.DockerConfig   // Docker-specific configuration
 }
 
 // Runtime defines the interface for sandbox runtime implementations.

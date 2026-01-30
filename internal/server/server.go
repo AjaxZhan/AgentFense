@@ -218,6 +218,24 @@ func (s *SandboxServiceServer) CreateSandbox(ctx context.Context, req *pb.Create
 		CodebasePath: codebasePath,
 		Permissions:  permissions,
 		Labels:       req.Labels,
+		Runtime:      convertRuntimeType(req.Runtime),
+	}
+
+	// Set resource limits if provided
+	if req.Resources != nil {
+		config.Resources = &types.ResourceLimits{
+			Memory:    req.Resources.MemoryBytes,
+			CPUQuota:  req.Resources.CpuQuota,
+			CPUShares: req.Resources.CpuShares,
+			PidsLimit: req.Resources.PidsLimit,
+		}
+	}
+
+	// Set Docker-specific config if image is provided
+	if req.Image != "" {
+		config.Docker = &types.DockerConfig{
+			Image: req.Image,
+		}
 	}
 
 	// Create sandbox via runtime
@@ -969,6 +987,30 @@ func convertSandboxStatus(s types.SandboxStatus) pb.SandboxStatus {
 	}
 }
 
+// convertRuntimeType converts proto RuntimeType to internal RuntimeType.
+func convertRuntimeType(rt pb.RuntimeType) types.RuntimeType {
+	switch rt {
+	case pb.RuntimeType_RUNTIME_TYPE_BWRAP:
+		return types.RuntimeBwrap
+	case pb.RuntimeType_RUNTIME_TYPE_DOCKER:
+		return types.RuntimeDocker
+	default:
+		return types.RuntimeUnspecified
+	}
+}
+
+// convertProtoRuntimeType converts internal RuntimeType to proto RuntimeType.
+func convertProtoRuntimeType(rt types.RuntimeType) pb.RuntimeType {
+	switch rt {
+	case types.RuntimeBwrap:
+		return pb.RuntimeType_RUNTIME_TYPE_BWRAP
+	case types.RuntimeDocker:
+		return pb.RuntimeType_RUNTIME_TYPE_DOCKER
+	default:
+		return pb.RuntimeType_RUNTIME_TYPE_UNSPECIFIED
+	}
+}
+
 // sandboxToProto converts internal Sandbox to proto Sandbox.
 func sandboxToProto(sb *types.Sandbox) *pb.Sandbox {
 	if sb == nil {
@@ -981,6 +1023,8 @@ func sandboxToProto(sb *types.Sandbox) *pb.Sandbox {
 		Status:     convertSandboxStatus(sb.Status),
 		Labels:     sb.Labels,
 		CreatedAt:  timestamppb.New(sb.CreatedAt),
+		Runtime:    convertProtoRuntimeType(sb.Runtime),
+		Image:      sb.Image,
 	}
 
 	// Convert permissions
@@ -1002,6 +1046,16 @@ func sandboxToProto(sb *types.Sandbox) *pb.Sandbox {
 	}
 	if sb.ExpiresAt != nil {
 		pbSandbox.ExpiresAt = timestamppb.New(*sb.ExpiresAt)
+	}
+
+	// Set resource limits
+	if sb.Resources != nil {
+		pbSandbox.Resources = &pb.ResourceLimits{
+			MemoryBytes: sb.Resources.Memory,
+			CpuQuota:    sb.Resources.CPUQuota,
+			CpuShares:   sb.Resources.CPUShares,
+			PidsLimit:   sb.Resources.PidsLimit,
+		}
 	}
 
 	return pbSandbox

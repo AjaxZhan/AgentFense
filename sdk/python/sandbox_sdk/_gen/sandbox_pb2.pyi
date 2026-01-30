@@ -13,8 +13,29 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class RuntimeType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RUNTIME_TYPE_UNSPECIFIED: _ClassVar[RuntimeType]
+    RUNTIME_TYPE_BWRAP: _ClassVar[RuntimeType]
+    RUNTIME_TYPE_DOCKER: _ClassVar[RuntimeType]
+RUNTIME_TYPE_UNSPECIFIED: RuntimeType
+RUNTIME_TYPE_BWRAP: RuntimeType
+RUNTIME_TYPE_DOCKER: RuntimeType
+
+class ResourceLimits(_message.Message):
+    __slots__ = ("memory_bytes", "cpu_quota", "cpu_shares", "pids_limit")
+    MEMORY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    CPU_QUOTA_FIELD_NUMBER: _ClassVar[int]
+    CPU_SHARES_FIELD_NUMBER: _ClassVar[int]
+    PIDS_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    memory_bytes: int
+    cpu_quota: int
+    cpu_shares: int
+    pids_limit: int
+    def __init__(self, memory_bytes: _Optional[int] = ..., cpu_quota: _Optional[int] = ..., cpu_shares: _Optional[int] = ..., pids_limit: _Optional[int] = ...) -> None: ...
+
 class Sandbox(_message.Message):
-    __slots__ = ("id", "codebase_id", "permissions", "status", "labels", "created_at", "started_at", "stopped_at", "expires_at")
+    __slots__ = ("id", "codebase_id", "permissions", "status", "labels", "created_at", "started_at", "stopped_at", "expires_at", "runtime", "image", "resources")
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -31,6 +52,9 @@ class Sandbox(_message.Message):
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     STOPPED_AT_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
     id: str
     codebase_id: str
     permissions: _containers.RepeatedCompositeFieldContainer[_common_pb2.PermissionRule]
@@ -40,10 +64,13 @@ class Sandbox(_message.Message):
     started_at: _timestamp_pb2.Timestamp
     stopped_at: _timestamp_pb2.Timestamp
     expires_at: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[str] = ..., codebase_id: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[_common_pb2.PermissionRule, _Mapping]]] = ..., status: _Optional[_Union[_common_pb2.SandboxStatus, str]] = ..., labels: _Optional[_Mapping[str, str]] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., stopped_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    runtime: RuntimeType
+    image: str
+    resources: ResourceLimits
+    def __init__(self, id: _Optional[str] = ..., codebase_id: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[_common_pb2.PermissionRule, _Mapping]]] = ..., status: _Optional[_Union[_common_pb2.SandboxStatus, str]] = ..., labels: _Optional[_Mapping[str, str]] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., stopped_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., runtime: _Optional[_Union[RuntimeType, str]] = ..., image: _Optional[str] = ..., resources: _Optional[_Union[ResourceLimits, _Mapping]] = ...) -> None: ...
 
 class CreateSandboxRequest(_message.Message):
-    __slots__ = ("codebase_id", "permissions", "expires_in", "labels")
+    __slots__ = ("codebase_id", "permissions", "expires_in", "labels", "runtime", "image", "resources")
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -55,11 +82,17 @@ class CreateSandboxRequest(_message.Message):
     PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_IN_FIELD_NUMBER: _ClassVar[int]
     LABELS_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
     codebase_id: str
     permissions: _containers.RepeatedCompositeFieldContainer[_common_pb2.PermissionRule]
     expires_in: _duration_pb2.Duration
     labels: _containers.ScalarMap[str, str]
-    def __init__(self, codebase_id: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[_common_pb2.PermissionRule, _Mapping]]] = ..., expires_in: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ..., labels: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    runtime: RuntimeType
+    image: str
+    resources: ResourceLimits
+    def __init__(self, codebase_id: _Optional[str] = ..., permissions: _Optional[_Iterable[_Union[_common_pb2.PermissionRule, _Mapping]]] = ..., expires_in: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ..., labels: _Optional[_Mapping[str, str]] = ..., runtime: _Optional[_Union[RuntimeType, str]] = ..., image: _Optional[str] = ..., resources: _Optional[_Union[ResourceLimits, _Mapping]] = ...) -> None: ...
 
 class GetSandboxRequest(_message.Message):
     __slots__ = ("sandbox_id",)

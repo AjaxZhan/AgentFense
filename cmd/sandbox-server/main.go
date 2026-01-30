@@ -12,6 +12,7 @@ import (
 	"github.com/ajaxzhan/sandbox-rls/internal/config"
 	"github.com/ajaxzhan/sandbox-rls/internal/runtime"
 	"github.com/ajaxzhan/sandbox-rls/internal/runtime/bwrap"
+	"github.com/ajaxzhan/sandbox-rls/internal/runtime/docker"
 	"github.com/ajaxzhan/sandbox-rls/internal/runtime/mock"
 	"github.com/ajaxzhan/sandbox-rls/internal/server"
 )
@@ -22,7 +23,7 @@ func main() {
 	grpcAddr := flag.String("grpc-addr", "", "gRPC server address (overrides config)")
 	httpAddr := flag.String("http-addr", "", "HTTP server address (overrides config)")
 	codebasePath := flag.String("codebase-path", "", "Base path for codebase storage (overrides config)")
-	runtimeType := flag.String("runtime", "", "Runtime type: bwrap, mock (overrides config)")
+	runtimeType := flag.String("runtime", "", "Runtime type: bwrap, docker, mock (overrides config)")
 	flag.Parse()
 
 	// Load configuration
@@ -113,6 +114,20 @@ func createRuntime(cfg *config.Config) runtime.RuntimeWithExecutor {
 			FUSEMountBase:  cfg.Storage.MountPath + "/fuse",
 		}
 		return bwrap.New(bwrapCfg)
+	case "docker":
+		dockerCfg := &docker.Config{
+			DockerHost:       cfg.Runtime.Docker.Host,
+			DefaultImage:     cfg.Runtime.Docker.DefaultImage,
+			DefaultTimeout:   cfg.Runtime.GetDefaultTimeout(),
+			FUSEMountBase:    cfg.Storage.MountPath + "/fuse",
+			NetworkMode:      cfg.Runtime.Docker.NetworkMode,
+			EnableNetworking: cfg.Runtime.Docker.EnableNetworking,
+		}
+		rt, err := docker.New(dockerCfg)
+		if err != nil {
+			log.Fatalf("Failed to create Docker runtime: %v", err)
+		}
+		return rt
 	case "mock":
 		return mock.New()
 	default:

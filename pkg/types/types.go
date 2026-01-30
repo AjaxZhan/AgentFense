@@ -69,19 +69,25 @@ type PermissionRule struct {
 
 // Sandbox represents an isolated execution environment.
 type Sandbox struct {
-	ID          string           `json:"id"`
-	CodebaseID  string           `json:"codebase_id"`
-	Permissions []PermissionRule `json:"permissions"`
-	Status      SandboxStatus    `json:"status"`
+	ID          string            `json:"id"`
+	CodebaseID  string            `json:"codebase_id"`
+	Permissions []PermissionRule  `json:"permissions"`
+	Status      SandboxStatus     `json:"status"`
 	Labels      map[string]string `json:"labels,omitempty"`
-	CreatedAt   time.Time        `json:"created_at"`
-	StartedAt   *time.Time       `json:"started_at,omitempty"`
-	StoppedAt   *time.Time       `json:"stopped_at,omitempty"`
-	ExpiresAt   *time.Time       `json:"expires_at,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
+	StartedAt   *time.Time        `json:"started_at,omitempty"`
+	StoppedAt   *time.Time        `json:"stopped_at,omitempty"`
+	ExpiresAt   *time.Time        `json:"expires_at,omitempty"`
+
+	// Runtime configuration
+	Runtime   RuntimeType     `json:"runtime,omitempty"`   // Runtime type used
+	Image     string          `json:"image,omitempty"`     // Docker image (for docker runtime)
+	Resources *ResourceLimits `json:"resources,omitempty"` // Resource limits
 
 	// Runtime information (not serialized to JSON)
-	PID        int    `json:"-"`
-	MountPoint string `json:"-"`
+	PID         int    `json:"-"`
+	MountPoint  string `json:"-"`
+	ContainerID string `json:"-"` // Docker container ID (for docker runtime)
 }
 
 // Codebase represents a user's file folder that can be mounted into sandboxes.
@@ -127,12 +133,41 @@ type ExecRecord struct {
 	Duration   time.Duration `json:"duration"`
 }
 
+// RuntimeType specifies the sandbox runtime implementation.
+type RuntimeType string
+
+const (
+	RuntimeUnspecified RuntimeType = ""
+	RuntimeBwrap       RuntimeType = "bwrap"
+	RuntimeDocker      RuntimeType = "docker"
+)
+
+// ResourceLimits defines resource constraints for a sandbox.
+type ResourceLimits struct {
+	Memory    int64 `json:"memory,omitempty"`     // Memory limit in bytes (e.g., 512*1024*1024 for 512MB)
+	CPUQuota  int64 `json:"cpu_quota,omitempty"`  // CPU quota in microseconds per 100ms period
+	CPUShares int64 `json:"cpu_shares,omitempty"` // CPU shares (relative weight)
+	PidsLimit int64 `json:"pids_limit,omitempty"` // Maximum number of processes
+}
+
+// DockerConfig holds Docker-specific sandbox configuration.
+type DockerConfig struct {
+	Image      string            `json:"image,omitempty"`      // Docker image (e.g., "python:3.11-slim")
+	Network    string            `json:"network,omitempty"`    // Network mode: "none", "bridge", "host"
+	Privileged bool              `json:"privileged,omitempty"` // Run in privileged mode (not recommended)
+	Env        map[string]string `json:"env,omitempty"`        // Additional environment variables
+}
+
 // CreateSandboxRequest represents a request to create a new sandbox.
 type CreateSandboxRequest struct {
 	CodebaseID  string            `json:"codebase_id"`
 	Permissions []PermissionRule  `json:"permissions"`
 	ExpiresIn   *time.Duration    `json:"expires_in,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
+	// Runtime configuration
+	Runtime   RuntimeType     `json:"runtime,omitempty"`   // Runtime type: bwrap, docker
+	Resources *ResourceLimits `json:"resources,omitempty"` // Resource limits
+	Docker    *DockerConfig   `json:"docker,omitempty"`    // Docker-specific config
 }
 
 // CreateCodebaseRequest represents a request to create a new codebase.
