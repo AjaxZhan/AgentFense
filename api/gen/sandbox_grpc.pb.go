@@ -19,14 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SandboxService_CreateSandbox_FullMethodName  = "/sandbox.v1.SandboxService/CreateSandbox"
-	SandboxService_GetSandbox_FullMethodName     = "/sandbox.v1.SandboxService/GetSandbox"
-	SandboxService_ListSandboxes_FullMethodName  = "/sandbox.v1.SandboxService/ListSandboxes"
-	SandboxService_StartSandbox_FullMethodName   = "/sandbox.v1.SandboxService/StartSandbox"
-	SandboxService_StopSandbox_FullMethodName    = "/sandbox.v1.SandboxService/StopSandbox"
-	SandboxService_DestroySandbox_FullMethodName = "/sandbox.v1.SandboxService/DestroySandbox"
-	SandboxService_Exec_FullMethodName           = "/sandbox.v1.SandboxService/Exec"
-	SandboxService_ExecStream_FullMethodName     = "/sandbox.v1.SandboxService/ExecStream"
+	SandboxService_CreateSandbox_FullMethodName     = "/sandbox.v1.SandboxService/CreateSandbox"
+	SandboxService_GetSandbox_FullMethodName        = "/sandbox.v1.SandboxService/GetSandbox"
+	SandboxService_ListSandboxes_FullMethodName     = "/sandbox.v1.SandboxService/ListSandboxes"
+	SandboxService_StartSandbox_FullMethodName      = "/sandbox.v1.SandboxService/StartSandbox"
+	SandboxService_StopSandbox_FullMethodName       = "/sandbox.v1.SandboxService/StopSandbox"
+	SandboxService_DestroySandbox_FullMethodName    = "/sandbox.v1.SandboxService/DestroySandbox"
+	SandboxService_Exec_FullMethodName              = "/sandbox.v1.SandboxService/Exec"
+	SandboxService_ExecStream_FullMethodName        = "/sandbox.v1.SandboxService/ExecStream"
+	SandboxService_CreateSession_FullMethodName     = "/sandbox.v1.SandboxService/CreateSession"
+	SandboxService_GetSession_FullMethodName        = "/sandbox.v1.SandboxService/GetSession"
+	SandboxService_ListSessions_FullMethodName      = "/sandbox.v1.SandboxService/ListSessions"
+	SandboxService_DestroySession_FullMethodName    = "/sandbox.v1.SandboxService/DestroySession"
+	SandboxService_SessionExec_FullMethodName       = "/sandbox.v1.SandboxService/SessionExec"
+	SandboxService_SessionExecStream_FullMethodName = "/sandbox.v1.SandboxService/SessionExecStream"
 )
 
 // SandboxServiceClient is the client API for SandboxService service.
@@ -51,6 +57,18 @@ type SandboxServiceClient interface {
 	Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (*ExecResult, error)
 	// ExecStream executes a command and streams output
 	ExecStream(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecOutput], error)
+	// CreateSession creates a new shell session within a sandbox
+	CreateSession(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*Session, error)
+	// GetSession retrieves information about a session
+	GetSession(ctx context.Context, in *GetSessionRequest, opts ...grpc.CallOption) (*Session, error)
+	// ListSessions lists all sessions for a sandbox
+	ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error)
+	// DestroySession destroys a session and kills all its child processes
+	DestroySession(ctx context.Context, in *DestroySessionRequest, opts ...grpc.CallOption) (*Empty, error)
+	// SessionExec executes a command within a session (stateful)
+	SessionExec(ctx context.Context, in *SessionExecRequest, opts ...grpc.CallOption) (*ExecResult, error)
+	// SessionExecStream executes a command within a session and streams output
+	SessionExecStream(ctx context.Context, in *SessionExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecOutput], error)
 }
 
 type sandboxServiceClient struct {
@@ -150,6 +168,75 @@ func (c *sandboxServiceClient) ExecStream(ctx context.Context, in *ExecRequest, 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxService_ExecStreamClient = grpc.ServerStreamingClient[ExecOutput]
 
+func (c *sandboxServiceClient) CreateSession(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*Session, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Session)
+	err := c.cc.Invoke(ctx, SandboxService_CreateSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxServiceClient) GetSession(ctx context.Context, in *GetSessionRequest, opts ...grpc.CallOption) (*Session, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Session)
+	err := c.cc.Invoke(ctx, SandboxService_GetSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxServiceClient) ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSessionsResponse)
+	err := c.cc.Invoke(ctx, SandboxService_ListSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxServiceClient) DestroySession(ctx context.Context, in *DestroySessionRequest, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, SandboxService_DestroySession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxServiceClient) SessionExec(ctx context.Context, in *SessionExecRequest, opts ...grpc.CallOption) (*ExecResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExecResult)
+	err := c.cc.Invoke(ctx, SandboxService_SessionExec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sandboxServiceClient) SessionExecStream(ctx context.Context, in *SessionExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecOutput], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &SandboxService_ServiceDesc.Streams[1], SandboxService_SessionExecStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SessionExecRequest, ExecOutput]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxService_SessionExecStreamClient = grpc.ServerStreamingClient[ExecOutput]
+
 // SandboxServiceServer is the server API for SandboxService service.
 // All implementations must embed UnimplementedSandboxServiceServer
 // for forward compatibility.
@@ -172,6 +259,18 @@ type SandboxServiceServer interface {
 	Exec(context.Context, *ExecRequest) (*ExecResult, error)
 	// ExecStream executes a command and streams output
 	ExecStream(*ExecRequest, grpc.ServerStreamingServer[ExecOutput]) error
+	// CreateSession creates a new shell session within a sandbox
+	CreateSession(context.Context, *CreateSessionRequest) (*Session, error)
+	// GetSession retrieves information about a session
+	GetSession(context.Context, *GetSessionRequest) (*Session, error)
+	// ListSessions lists all sessions for a sandbox
+	ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error)
+	// DestroySession destroys a session and kills all its child processes
+	DestroySession(context.Context, *DestroySessionRequest) (*Empty, error)
+	// SessionExec executes a command within a session (stateful)
+	SessionExec(context.Context, *SessionExecRequest) (*ExecResult, error)
+	// SessionExecStream executes a command within a session and streams output
+	SessionExecStream(*SessionExecRequest, grpc.ServerStreamingServer[ExecOutput]) error
 	mustEmbedUnimplementedSandboxServiceServer()
 }
 
@@ -205,6 +304,24 @@ func (UnimplementedSandboxServiceServer) Exec(context.Context, *ExecRequest) (*E
 }
 func (UnimplementedSandboxServiceServer) ExecStream(*ExecRequest, grpc.ServerStreamingServer[ExecOutput]) error {
 	return status.Error(codes.Unimplemented, "method ExecStream not implemented")
+}
+func (UnimplementedSandboxServiceServer) CreateSession(context.Context, *CreateSessionRequest) (*Session, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSession not implemented")
+}
+func (UnimplementedSandboxServiceServer) GetSession(context.Context, *GetSessionRequest) (*Session, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetSession not implemented")
+}
+func (UnimplementedSandboxServiceServer) ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSessions not implemented")
+}
+func (UnimplementedSandboxServiceServer) DestroySession(context.Context, *DestroySessionRequest) (*Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DestroySession not implemented")
+}
+func (UnimplementedSandboxServiceServer) SessionExec(context.Context, *SessionExecRequest) (*ExecResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method SessionExec not implemented")
+}
+func (UnimplementedSandboxServiceServer) SessionExecStream(*SessionExecRequest, grpc.ServerStreamingServer[ExecOutput]) error {
+	return status.Error(codes.Unimplemented, "method SessionExecStream not implemented")
 }
 func (UnimplementedSandboxServiceServer) mustEmbedUnimplementedSandboxServiceServer() {}
 func (UnimplementedSandboxServiceServer) testEmbeddedByValue()                        {}
@@ -364,6 +481,107 @@ func _SandboxService_ExecStream_Handler(srv interface{}, stream grpc.ServerStrea
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type SandboxService_ExecStreamServer = grpc.ServerStreamingServer[ExecOutput]
 
+func _SandboxService_CreateSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxServiceServer).CreateSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxService_CreateSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxServiceServer).CreateSession(ctx, req.(*CreateSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxService_GetSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxServiceServer).GetSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxService_GetSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxServiceServer).GetSession(ctx, req.(*GetSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxService_ListSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxServiceServer).ListSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxService_ListSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxServiceServer).ListSessions(ctx, req.(*ListSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxService_DestroySession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DestroySessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxServiceServer).DestroySession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxService_DestroySession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxServiceServer).DestroySession(ctx, req.(*DestroySessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxService_SessionExec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SessionExecRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SandboxServiceServer).SessionExec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SandboxService_SessionExec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SandboxServiceServer).SessionExec(ctx, req.(*SessionExecRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SandboxService_SessionExecStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SessionExecRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SandboxServiceServer).SessionExecStream(m, &grpc.GenericServerStream[SessionExecRequest, ExecOutput]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SandboxService_SessionExecStreamServer = grpc.ServerStreamingServer[ExecOutput]
+
 // SandboxService_ServiceDesc is the grpc.ServiceDesc for SandboxService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -399,11 +617,36 @@ var SandboxService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Exec",
 			Handler:    _SandboxService_Exec_Handler,
 		},
+		{
+			MethodName: "CreateSession",
+			Handler:    _SandboxService_CreateSession_Handler,
+		},
+		{
+			MethodName: "GetSession",
+			Handler:    _SandboxService_GetSession_Handler,
+		},
+		{
+			MethodName: "ListSessions",
+			Handler:    _SandboxService_ListSessions_Handler,
+		},
+		{
+			MethodName: "DestroySession",
+			Handler:    _SandboxService_DestroySession_Handler,
+		},
+		{
+			MethodName: "SessionExec",
+			Handler:    _SandboxService_SessionExec_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "ExecStream",
 			Handler:       _SandboxService_ExecStream_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SessionExecStream",
+			Handler:       _SandboxService_SessionExecStream_Handler,
 			ServerStreams: true,
 		},
 	},

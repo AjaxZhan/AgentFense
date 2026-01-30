@@ -4,9 +4,6 @@ package sandbox.v1;
 
 option go_package = "github.com/ajaxzhan/sandbox-rls/api/gen/sandbox/v1;sandboxv1";
 
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
-
 // Permission levels for file access
 enum Permission {
   PERMISSION_UNSPECIFIED = 0;
@@ -39,6 +36,13 @@ enum SandboxStatus {
   SANDBOX_STATUS_RUNNING = 2;
   SANDBOX_STATUS_STOPPED = 3;
   SANDBOX_STATUS_ERROR = 4;
+}
+
+// SessionStatus represents the state of a shell session
+enum SessionStatus {
+  SESSION_STATUS_UNSPECIFIED = 0;
+  SESSION_STATUS_ACTIVE = 1;
+  SESSION_STATUS_CLOSED = 2;
 }
 
 // Empty message for void returns

@@ -155,15 +155,21 @@ func (s *Server) StartWithGateway() error {
 type SandboxServiceServer struct {
 	pb.UnimplementedSandboxServiceServer
 	runtime         sbruntime.RuntimeWithExecutor
+	sessionRuntime  sbruntime.SessionManager // Optional: for session support
 	codebaseManager *codebase.Manager
 }
 
 // NewSandboxServiceServer creates a new SandboxServiceServer.
 func NewSandboxServiceServer(rt sbruntime.RuntimeWithExecutor, cbManager *codebase.Manager) *SandboxServiceServer {
-	return &SandboxServiceServer{
+	server := &SandboxServiceServer{
 		runtime:         rt,
 		codebaseManager: cbManager,
 	}
+	// Check if runtime supports sessions
+	if sessRT, ok := rt.(sbruntime.SessionManager); ok {
+		server.sessionRuntime = sessRT
+	}
+	return server
 }
 
 // generateSandboxID generates a unique sandbox ID.
@@ -431,6 +437,231 @@ func (s *SandboxServiceServer) ExecStream(req *pb.ExecRequest, stream grpc.Serve
 	}
 
 	return nil
+}
+
+// ============================================
+// Session Management Methods
+// ============================================
+
+// CreateSession creates a new shell session within a sandbox.
+func (s *SandboxServiceServer) CreateSession(ctx context.Context, req *pb.CreateSessionRequest) (*pb.Session, error) {
+	if s.sessionRuntime == nil {
+		return nil, status.Error(codes.Unimplemented, "session support not available")
+	}
+
+	if req.SandboxId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sandbox_id is required")
+	}
+
+	config := &types.SessionConfig{
+		Shell: req.Shell,
+		Env:   req.Env,
+	}
+
+	session, err := s.sessionRuntime.CreateSession(ctx, req.SandboxId, config)
+	if err != nil {
+		if errors.Is(err, types.ErrSandboxNotFound) {
+			return nil, status.Error(codes.NotFound, "sandbox not found")
+		}
+		if errors.Is(err, types.ErrNotRunning) {
+			return nil, status.Error(codes.FailedPrecondition, "sandbox is not running")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to create session: %v", err)
+	}
+
+	return sessionToProto(session), nil
+}
+
+// GetSession retrieves information about a session.
+func (s *SandboxServiceServer) GetSession(ctx context.Context, req *pb.GetSessionRequest) (*pb.Session, error) {
+	if s.sessionRuntime == nil {
+		return nil, status.Error(codes.Unimplemented, "session support not available")
+	}
+
+	if req.SessionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "session_id is required")
+	}
+
+	session, err := s.sessionRuntime.GetSession(ctx, req.SessionId)
+	if err != nil {
+		if errors.Is(err, types.ErrSessionNotFound) {
+			return nil, status.Error(codes.NotFound, "session not found")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to get session: %v", err)
+	}
+
+	return sessionToProto(session), nil
+}
+
+// ListSessions lists all sessions for a sandbox.
+func (s *SandboxServiceServer) ListSessions(ctx context.Context, req *pb.ListSessionsRequest) (*pb.ListSessionsResponse, error) {
+	if s.sessionRuntime == nil {
+		return nil, status.Error(codes.Unimplemented, "session support not available")
+	}
+
+	if req.SandboxId == "" {
+		return nil, status.Error(codes.InvalidArgument, "sandbox_id is required")
+	}
+
+	sessions, err := s.sessionRuntime.ListSessions(ctx, req.SandboxId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list sessions: %v", err)
+	}
+
+	pbSessions := make([]*pb.Session, 0, len(sessions))
+	for _, sess := range sessions {
+		pbSessions = append(pbSessions, sessionToProto(sess))
+	}
+
+	return &pb.ListSessionsResponse{
+		Sessions: pbSessions,
+	}, nil
+}
+
+// DestroySession destroys a session and kills all its child processes.
+func (s *SandboxServiceServer) DestroySession(ctx context.Context, req *pb.DestroySessionRequest) (*pb.Empty, error) {
+	if s.sessionRuntime == nil {
+		return nil, status.Error(codes.Unimplemented, "session support not available")
+	}
+
+	if req.SessionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "session_id is required")
+	}
+
+	err := s.sessionRuntime.DestroySession(ctx, req.SessionId)
+	if err != nil {
+		if errors.Is(err, types.ErrSessionNotFound) {
+			return nil, status.Error(codes.NotFound, "session not found")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to destroy session: %v", err)
+	}
+
+	return &pb.Empty{}, nil
+}
+
+// SessionExec executes a command within a session (stateful).
+func (s *SandboxServiceServer) SessionExec(ctx context.Context, req *pb.SessionExecRequest) (*pb.ExecResult, error) {
+	if s.sessionRuntime == nil {
+		return nil, status.Error(codes.Unimplemented, "session support not available")
+	}
+
+	if req.SessionId == "" {
+		return nil, status.Error(codes.InvalidArgument, "session_id is required")
+	}
+	if req.Command == "" {
+		return nil, status.Error(codes.InvalidArgument, "command is required")
+	}
+
+	execReq := &types.SessionExecRequest{
+		Command: req.Command,
+	}
+	if req.Timeout != nil {
+		execReq.Timeout = req.Timeout.AsDuration()
+	}
+
+	result, err := s.sessionRuntime.SessionExec(ctx, req.SessionId, execReq)
+	if err != nil {
+		if errors.Is(err, types.ErrSessionNotFound) {
+			return nil, status.Error(codes.NotFound, "session not found")
+		}
+		if errors.Is(err, types.ErrSessionClosed) {
+			return nil, status.Error(codes.FailedPrecondition, "session is closed")
+		}
+		if errors.Is(err, types.ErrTimeout) {
+			return nil, status.Error(codes.DeadlineExceeded, "command timed out")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to execute command: %v", err)
+	}
+
+	return &pb.ExecResult{
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+		ExitCode: int32(result.ExitCode),
+		Duration: durationpb.New(result.Duration),
+	}, nil
+}
+
+// SessionExecStream executes a command within a session and streams output.
+func (s *SandboxServiceServer) SessionExecStream(req *pb.SessionExecRequest, stream grpc.ServerStreamingServer[pb.ExecOutput]) error {
+	if s.sessionRuntime == nil {
+		return status.Error(codes.Unimplemented, "session support not available")
+	}
+
+	if req.SessionId == "" {
+		return status.Error(codes.InvalidArgument, "session_id is required")
+	}
+	if req.Command == "" {
+		return status.Error(codes.InvalidArgument, "command is required")
+	}
+
+	output := make(chan []byte, 100)
+
+	execReq := &types.SessionExecRequest{
+		Command: req.Command,
+	}
+	if req.Timeout != nil {
+		execReq.Timeout = req.Timeout.AsDuration()
+	}
+
+	ctx := stream.Context()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- s.sessionRuntime.SessionExecStream(ctx, req.SessionId, execReq, output)
+	}()
+
+	for data := range output {
+		if err := stream.Send(&pb.ExecOutput{
+			Type: pb.ExecOutput_OUTPUT_TYPE_STDOUT,
+			Data: data,
+		}); err != nil {
+			return err
+		}
+	}
+
+	if err := <-errCh; err != nil {
+		if errors.Is(err, types.ErrSessionNotFound) {
+			return status.Error(codes.NotFound, "session not found")
+		}
+		if errors.Is(err, types.ErrSessionClosed) {
+			return status.Error(codes.FailedPrecondition, "session is closed")
+		}
+		return status.Errorf(codes.Internal, "failed to execute command: %v", err)
+	}
+
+	return nil
+}
+
+// sessionToProto converts internal Session to proto Session.
+func sessionToProto(sess *types.Session) *pb.Session {
+	if sess == nil {
+		return nil
+	}
+
+	pbSession := &pb.Session{
+		Id:        sess.ID,
+		SandboxId: sess.SandboxID,
+		Status:    convertSessionStatus(sess.Status),
+		Shell:     sess.Shell,
+		CreatedAt: timestamppb.New(sess.CreatedAt),
+	}
+
+	if sess.ClosedAt != nil {
+		pbSession.ClosedAt = timestamppb.New(*sess.ClosedAt)
+	}
+
+	return pbSession
+}
+
+// convertSessionStatus converts internal SessionStatus to proto SessionStatus.
+func convertSessionStatus(s types.SessionStatus) pb.SessionStatus {
+	switch s {
+	case types.SessionStatusActive:
+		return pb.SessionStatus_SESSION_STATUS_ACTIVE
+	case types.SessionStatusClosed:
+		return pb.SessionStatus_SESSION_STATUS_CLOSED
+	default:
+		return pb.SessionStatus_SESSION_STATUS_UNSPECIFIED
+	}
 }
 
 // ============================================

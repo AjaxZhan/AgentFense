@@ -32,7 +32,7 @@ Example:
     >>> client.delete_codebase(codebase.id)
 """
 
-from .client import SandboxClient
+from .client import SandboxClient, SessionWrapper
 from .types import (
     Codebase,
     ExecResult,
@@ -42,12 +42,15 @@ from .types import (
     PermissionRule,
     Sandbox,
     SandboxStatus,
+    Session,
+    SessionStatus,
     UploadResult,
 )
 
 __version__ = "0.1.0"
 __all__ = [
     "SandboxClient",
+    "SessionWrapper",
     "Codebase",
     "ExecResult",
     "FileInfo",
@@ -56,5 +59,7 @@ __all__ = [
     "PermissionRule",
     "Sandbox",
     "SandboxStatus",
+    "Session",
+    "SessionStatus",
     "UploadResult",
 ]

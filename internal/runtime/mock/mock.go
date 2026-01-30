@@ -3,6 +3,7 @@ package mock
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -10,23 +11,27 @@ import (
 	"github.com/ajaxzhan/sandbox-rls/pkg/types"
 )
 
-// MockRuntime is a mock implementation of runtime.RuntimeWithExecutor for testing.
+// MockRuntime is a mock implementation of runtime.RuntimeWithSession for testing.
 type MockRuntime struct {
-	mu       sync.RWMutex
+	mu        sync.RWMutex
 	sandboxes map[string]*types.Sandbox
+	sessions  map[string]*types.Session
 	
 	// Hooks for customizing behavior in tests
-	OnCreate  func(ctx context.Context, config *runtime.SandboxConfig) (*types.Sandbox, error)
-	OnStart   func(ctx context.Context, sandboxID string) error
-	OnStop    func(ctx context.Context, sandboxID string) error
-	OnDestroy func(ctx context.Context, sandboxID string) error
-	OnExec    func(ctx context.Context, sandboxID string, req *types.ExecRequest) (*types.ExecResult, error)
+	OnCreate        func(ctx context.Context, config *runtime.SandboxConfig) (*types.Sandbox, error)
+	OnStart         func(ctx context.Context, sandboxID string) error
+	OnStop          func(ctx context.Context, sandboxID string) error
+	OnDestroy       func(ctx context.Context, sandboxID string) error
+	OnExec          func(ctx context.Context, sandboxID string, req *types.ExecRequest) (*types.ExecResult, error)
+	OnCreateSession func(ctx context.Context, sandboxID string, config *types.SessionConfig) (*types.Session, error)
+	OnSessionExec   func(ctx context.Context, sessionID string, req *types.SessionExecRequest) (*types.ExecResult, error)
 }
 
 // New creates a new MockRuntime.
 func New() *MockRuntime {
 	return &MockRuntime{
 		sandboxes: make(map[string]*types.Sandbox),
+		sessions:  make(map[string]*types.Session),
 	}
 }
 
@@ -197,5 +202,142 @@ func (m *MockRuntime) ExecStream(ctx context.Context, sandboxID string, req *typ
 	return nil
 }
 
+// ============================================
+// SessionManager Implementation
+// ============================================
+
+var sessionCounter int
+
+// CreateSession creates a new shell session within a sandbox.
+func (m *MockRuntime) CreateSession(ctx context.Context, sandboxID string, config *types.SessionConfig) (*types.Session, error) {
+	if m.OnCreateSession != nil {
+		return m.OnCreateSession(ctx, sandboxID, config)
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sandbox, ok := m.sandboxes[sandboxID]
+	if !ok {
+		return nil, types.ErrSandboxNotFound
+	}
+
+	if sandbox.Status != types.StatusRunning {
+		return nil, types.ErrNotRunning
+	}
+
+	shell := "/bin/bash"
+	if config != nil && config.Shell != "" {
+		shell = config.Shell
+	}
+
+	sessionCounter++
+	sessionID := "mock_sess_" + strconv.Itoa(sessionCounter)
+
+	session := &types.Session{
+		ID:        sessionID,
+		SandboxID: sandboxID,
+		Status:    types.SessionStatusActive,
+		Shell:     shell,
+		CreatedAt: time.Now(),
+	}
+
+	m.sessions[sessionID] = session
+	return session, nil
+}
+
+// DestroySession destroys a session and kills all its child processes.
+func (m *MockRuntime) DestroySession(ctx context.Context, sessionID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.sessions[sessionID]; !ok {
+		return types.ErrSessionNotFound
+	}
+
+	delete(m.sessions, sessionID)
+	return nil
+}
+
+// GetSession retrieves information about a session.
+func (m *MockRuntime) GetSession(ctx context.Context, sessionID string) (*types.Session, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	session, ok := m.sessions[sessionID]
+	if !ok {
+		return nil, types.ErrSessionNotFound
+	}
+
+	copy := *session
+	return &copy, nil
+}
+
+// ListSessions returns all sessions for a sandbox.
+func (m *MockRuntime) ListSessions(ctx context.Context, sandboxID string) ([]*types.Session, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	var sessions []*types.Session
+	for _, sess := range m.sessions {
+		if sess.SandboxID == sandboxID {
+			copy := *sess
+			sessions = append(sessions, &copy)
+		}
+	}
+
+	if sessions == nil {
+		sessions = []*types.Session{}
+	}
+	return sessions, nil
+}
+
+// SessionExec executes a command within a session, preserving state.
+func (m *MockRuntime) SessionExec(ctx context.Context, sessionID string, req *types.SessionExecRequest) (*types.ExecResult, error) {
+	if m.OnSessionExec != nil {
+		return m.OnSessionExec(ctx, sessionID, req)
+	}
+
+	m.mu.RLock()
+	session, ok := m.sessions[sessionID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return nil, types.ErrSessionNotFound
+	}
+
+	if session.Status != types.SessionStatusActive {
+		return nil, types.ErrSessionClosed
+	}
+
+	// Default mock behavior: return empty successful result
+	return &types.ExecResult{
+		Stdout:   "",
+		Stderr:   "",
+		ExitCode: 0,
+		Duration: time.Millisecond,
+	}, nil
+}
+
+// SessionExecStream executes a command within a session and streams output.
+func (m *MockRuntime) SessionExecStream(ctx context.Context, sessionID string, req *types.SessionExecRequest, output chan<- []byte) error {
+	m.mu.RLock()
+	session, ok := m.sessions[sessionID]
+	m.mu.RUnlock()
+
+	if !ok {
+		close(output)
+		return types.ErrSessionNotFound
+	}
+
+	if session.Status != types.SessionStatusActive {
+		close(output)
+		return types.ErrSessionClosed
+	}
+
+	close(output)
+	return nil
+}
+
 // Verify interface compliance at compile time
-var _ runtime.RuntimeWithExecutor = (*MockRuntime)(nil)
+var _ runtime.RuntimeWithSession = (*MockRuntime)(nil)

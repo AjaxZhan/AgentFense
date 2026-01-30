@@ -64,6 +64,50 @@ service SandboxService {
 
   // ExecStream executes a command and streams output
   rpc ExecStream(ExecRequest) returns (stream ExecOutput);
+
+  // ============================================
+  // Session Management - Stateful Shell Sessions
+  // ============================================
+
+  // CreateSession creates a new shell session within a sandbox
+  rpc CreateSession(CreateSessionRequest) returns (Session) {
+    option (google.api.http) = {
+      post: "/v1/sandboxes/{sandbox_id}/sessions"
+      body: "*"
+    };
+  }
+
+  // GetSession retrieves information about a session
+  rpc GetSession(GetSessionRequest) returns (Session) {
+    option (google.api.http) = {
+      get: "/v1/sessions/{session_id}"
+    };
+  }
+
+  // ListSessions lists all sessions for a sandbox
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/sandboxes/{sandbox_id}/sessions"
+    };
+  }
+
+  // DestroySession destroys a session and kills all its child processes
+  rpc DestroySession(DestroySessionRequest) returns (Empty) {
+    option (google.api.http) = {
+      delete: "/v1/sessions/{session_id}"
+    };
+  }
+
+  // SessionExec executes a command within a session (stateful)
+  rpc SessionExec(SessionExecRequest) returns (ExecResult) {
+    option (google.api.http) = {
+      post: "/v1/sessions/{session_id}/exec"
+      body: "*"
+    };
+  }
+
+  // SessionExecStream executes a command within a session and streams output
+  rpc SessionExecStream(SessionExecRequest) returns (stream ExecOutput);
 }
 
 // Sandbox represents an isolated execution environment
@@ -147,4 +191,52 @@ message ExecOutput {
   }
   OutputType type = 1;
   bytes data = 2;
+}
+
+// ============================================
+// Session Messages
+// ============================================
+
+// Session represents a stateful shell session within a sandbox
+message Session {
+  string id = 1;
+  string sandbox_id = 2;
+  SessionStatus status = 3;
+  string shell = 4;  // Shell binary, e.g., "/bin/bash"
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp closed_at = 6;
+}
+
+// CreateSessionRequest
+message CreateSessionRequest {
+  string sandbox_id = 1;
+  string shell = 2;  // Optional: shell binary (default: /bin/bash)
+  map<string, string> env = 3;  // Optional: initial environment variables
+}
+
+// GetSessionRequest
+message GetSessionRequest {
+  string session_id = 1;
+}
+
+// ListSessionsRequest
+message ListSessionsRequest {
+  string sandbox_id = 1;
+}
+
+// ListSessionsResponse
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+// DestroySessionRequest
+message DestroySessionRequest {
+  string session_id = 1;
+}
+
+// SessionExecRequest represents a command execution within a session
+message SessionExecRequest {
+  string session_id = 1;
+  string command = 2;
+  google.protobuf.Duration timeout = 3;
 }

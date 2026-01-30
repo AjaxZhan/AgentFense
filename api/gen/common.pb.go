@@ -9,8 +9,6 @@ package sandboxv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	_ "google.golang.org/protobuf/types/known/durationpb"
-	_ "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -188,6 +186,56 @@ func (SandboxStatus) EnumDescriptor() ([]byte, []int) {
 	return file_common_proto_rawDescGZIP(), []int{2}
 }
 
+// SessionStatus represents the state of a shell session
+type SessionStatus int32
+
+const (
+	SessionStatus_SESSION_STATUS_UNSPECIFIED SessionStatus = 0
+	SessionStatus_SESSION_STATUS_ACTIVE      SessionStatus = 1
+	SessionStatus_SESSION_STATUS_CLOSED      SessionStatus = 2
+)
+
+// Enum value maps for SessionStatus.
+var (
+	SessionStatus_name = map[int32]string{
+		0: "SESSION_STATUS_UNSPECIFIED",
+		1: "SESSION_STATUS_ACTIVE",
+		2: "SESSION_STATUS_CLOSED",
+	}
+	SessionStatus_value = map[string]int32{
+		"SESSION_STATUS_UNSPECIFIED": 0,
+		"SESSION_STATUS_ACTIVE":      1,
+		"SESSION_STATUS_CLOSED":      2,
+	}
+)
+
+func (x SessionStatus) Enum() *SessionStatus {
+	p := new(SessionStatus)
+	*p = x
+	return p
+}
+
+func (x SessionStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SessionStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_common_proto_enumTypes[3].Descriptor()
+}
+
+func (SessionStatus) Type() protoreflect.EnumType {
+	return &file_common_proto_enumTypes[3]
+}
+
+func (x SessionStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SessionStatus.Descriptor instead.
+func (SessionStatus) EnumDescriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{3}
+}
+
 // PermissionRule defines access control for files
 type PermissionRule struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -299,7 +347,7 @@ var File_common_proto protoreflect.FileDescriptor
 const file_common_proto_rawDesc = "" +
 	"\n" +
 	"\fcommon.proto\x12\n" +
-	"sandbox.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\"\xab\x01\n" +
+	"sandbox.v1\"\xab\x01\n" +
 	"\x0ePermissionRule\x12\x18\n" +
 	"\apattern\x18\x01 \x01(\tR\apattern\x12+\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x17.sandbox.v1.PatternTypeR\x04type\x126\n" +
@@ -325,7 +373,11 @@ const file_common_proto_rawDesc = "" +
 	"\x16SANDBOX_STATUS_PENDING\x10\x01\x12\x1a\n" +
 	"\x16SANDBOX_STATUS_RUNNING\x10\x02\x12\x1a\n" +
 	"\x16SANDBOX_STATUS_STOPPED\x10\x03\x12\x18\n" +
-	"\x14SANDBOX_STATUS_ERROR\x10\x04B>Z<github.com/ajaxzhan/sandbox-rls/api/gen/sandbox/v1;sandboxv1b\x06proto3"
+	"\x14SANDBOX_STATUS_ERROR\x10\x04*e\n" +
+	"\rSessionStatus\x12\x1e\n" +
+	"\x1aSESSION_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15SESSION_STATUS_ACTIVE\x10\x01\x12\x19\n" +
+	"\x15SESSION_STATUS_CLOSED\x10\x02B>Z<github.com/ajaxzhan/sandbox-rls/api/gen/sandbox/v1;sandboxv1b\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
@@ -339,14 +391,15 @@ func file_common_proto_rawDescGZIP() []byte {
 	return file_common_proto_rawDescData
 }
 
-var file_common_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_common_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_common_proto_goTypes = []any{
 	(Permission)(0),        // 0: sandbox.v1.Permission
 	(PatternType)(0),       // 1: sandbox.v1.PatternType
 	(SandboxStatus)(0),     // 2: sandbox.v1.SandboxStatus
-	(*PermissionRule)(nil), // 3: sandbox.v1.PermissionRule
-	(*Empty)(nil),          // 4: sandbox.v1.Empty
+	(SessionStatus)(0),     // 3: sandbox.v1.SessionStatus
+	(*PermissionRule)(nil), // 4: sandbox.v1.PermissionRule
+	(*Empty)(nil),          // 5: sandbox.v1.Empty
 }
 var file_common_proto_depIdxs = []int32{
 	1, // 0: sandbox.v1.PermissionRule.type:type_name -> sandbox.v1.PatternType
@@ -368,7 +421,7 @@ func file_common_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      4,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,

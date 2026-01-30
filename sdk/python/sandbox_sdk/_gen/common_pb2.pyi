@@ -1,5 +1,3 @@
-from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -29,6 +27,12 @@ class SandboxStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SANDBOX_STATUS_RUNNING: _ClassVar[SandboxStatus]
     SANDBOX_STATUS_STOPPED: _ClassVar[SandboxStatus]
     SANDBOX_STATUS_ERROR: _ClassVar[SandboxStatus]
+
+class SessionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SESSION_STATUS_UNSPECIFIED: _ClassVar[SessionStatus]
+    SESSION_STATUS_ACTIVE: _ClassVar[SessionStatus]
+    SESSION_STATUS_CLOSED: _ClassVar[SessionStatus]
 PERMISSION_UNSPECIFIED: Permission
 PERMISSION_NONE: Permission
 PERMISSION_VIEW: Permission
@@ -43,6 +47,9 @@ SANDBOX_STATUS_PENDING: SandboxStatus
 SANDBOX_STATUS_RUNNING: SandboxStatus
 SANDBOX_STATUS_STOPPED: SandboxStatus
 SANDBOX_STATUS_ERROR: SandboxStatus
+SESSION_STATUS_UNSPECIFIED: SessionStatus
+SESSION_STATUS_ACTIVE: SessionStatus
+SESSION_STATUS_CLOSED: SessionStatus
 
 class PermissionRule(_message.Message):
     __slots__ = ("pattern", "type", "permission", "priority")

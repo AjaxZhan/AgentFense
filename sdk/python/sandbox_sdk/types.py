@@ -29,6 +29,13 @@ class SandboxStatus(str, Enum):
     ERROR = "error"
 
 
+class SessionStatus(str, Enum):
+    """Status of a shell session."""
+    UNKNOWN = "unknown"  # Unspecified or unknown status
+    ACTIVE = "active"
+    CLOSED = "closed"
+
+
 @dataclass
 class PermissionRule:
     """A rule defining file permissions."""
@@ -99,3 +106,19 @@ class UploadResult:
     file_path: str
     size: int
     checksum: str
+
+
+@dataclass
+class Session:
+    """Represents a shell session within a sandbox.
+    
+    A session maintains a persistent shell process that preserves
+    working directory, environment variables, and background processes
+    across multiple command executions.
+    """
+    id: str
+    sandbox_id: str
+    status: SessionStatus
+    shell: str = "/bin/bash"
+    created_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None

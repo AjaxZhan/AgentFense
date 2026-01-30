@@ -56,3 +56,35 @@ type RuntimeWithExecutor interface {
 	Runtime
 	Executor
 }
+
+// SessionManager defines the interface for managing stateful shell sessions.
+// Sessions maintain a persistent shell process that preserves state across
+// multiple command executions (working directory, environment variables, etc.).
+type SessionManager interface {
+	// CreateSession creates a new shell session within a sandbox.
+	// The session maintains a persistent shell process.
+	CreateSession(ctx context.Context, sandboxID string, config *types.SessionConfig) (*types.Session, error)
+
+	// DestroySession destroys a session and kills all its child processes.
+	DestroySession(ctx context.Context, sessionID string) error
+
+	// GetSession retrieves information about a session.
+	GetSession(ctx context.Context, sessionID string) (*types.Session, error)
+
+	// ListSessions returns all sessions for a sandbox.
+	ListSessions(ctx context.Context, sandboxID string) ([]*types.Session, error)
+
+	// SessionExec executes a command within a session, preserving state.
+	// Unlike Exec, this runs in the context of the persistent shell,
+	// so working directory and environment changes persist.
+	SessionExec(ctx context.Context, sessionID string, req *types.SessionExecRequest) (*types.ExecResult, error)
+
+	// SessionExecStream executes a command within a session and streams output.
+	SessionExecStream(ctx context.Context, sessionID string, req *types.SessionExecRequest, output chan<- []byte) error
+}
+
+// RuntimeWithSession combines RuntimeWithExecutor and SessionManager interfaces.
+type RuntimeWithSession interface {
+	RuntimeWithExecutor
+	SessionManager
+}

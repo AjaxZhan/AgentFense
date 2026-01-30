@@ -18,6 +18,8 @@ from .types import (
     PermissionRule,
     Sandbox,
     SandboxStatus,
+    Session,
+    SessionStatus,
     UploadResult,
 )
 
@@ -135,6 +137,103 @@ def _proto_to_file_info(pb: codebase_pb2.FileInfo) -> FileInfo:
         size=pb.size,
         modified_at=_timestamp_to_datetime(pb.modified_at),
     )
+
+
+def _proto_to_session_status(status: common_pb2.SessionStatus) -> SessionStatus:
+    """Convert protobuf SessionStatus to enum."""
+    mapping = {
+        common_pb2.SESSION_STATUS_UNSPECIFIED: SessionStatus.UNKNOWN,
+        common_pb2.SESSION_STATUS_ACTIVE: SessionStatus.ACTIVE,
+        common_pb2.SESSION_STATUS_CLOSED: SessionStatus.CLOSED,
+    }
+    return mapping.get(status, SessionStatus.UNKNOWN)
+
+
+def _proto_to_session(pb: sandbox_pb2.Session) -> Session:
+    """Convert protobuf Session to Session dataclass."""
+    return Session(
+        id=pb.id,
+        sandbox_id=pb.sandbox_id,
+        status=_proto_to_session_status(pb.status),
+        shell=pb.shell,
+        created_at=_timestamp_to_datetime(pb.created_at),
+        closed_at=_timestamp_to_datetime(pb.closed_at),
+    )
+
+
+class SessionWrapper:
+    """Wrapper for a shell session with context manager support.
+    
+    A session maintains a persistent shell process that preserves
+    working directory, environment variables, and background processes.
+    
+    Example:
+        >>> with sandbox.session() as session:
+        ...     session.exec("cd /workspace")
+        ...     session.exec("npm install")
+        ...     result = session.exec("npm test")
+    """
+    
+    def __init__(self, client: "SandboxClient", session: Session):
+        """Initialize the SessionWrapper.
+        
+        Args:
+            client: The SandboxClient instance.
+            session: The Session object.
+        """
+        self._client = client
+        self._session = session
+    
+    @property
+    def id(self) -> str:
+        """Get the session ID."""
+        return self._session.id
+    
+    @property
+    def sandbox_id(self) -> str:
+        """Get the sandbox ID."""
+        return self._session.sandbox_id
+    
+    @property
+    def status(self) -> SessionStatus:
+        """Get the session status."""
+        return self._session.status
+    
+    @property
+    def shell(self) -> str:
+        """Get the shell binary path."""
+        return self._session.shell
+    
+    def exec(
+        self,
+        command: str,
+        timeout: Optional[timedelta] = None,
+    ) -> ExecResult:
+        """Execute a command in the session.
+        
+        The command runs in the context of the persistent shell,
+        so working directory and environment changes persist.
+        
+        Args:
+            command: The command to execute.
+            timeout: Optional timeout duration.
+            
+        Returns:
+            The ExecResult with stdout, stderr, and exit code.
+        """
+        return self._client.session_exec(self.id, command, timeout)
+    
+    def close(self):
+        """Close the session and clean up all child processes."""
+        self._client.destroy_session(self.id)
+    
+    def __enter__(self) -> "SessionWrapper":
+        """Enter context manager."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit context manager, closing the session."""
+        self.close()
 
 
 class SandboxClient:
@@ -381,6 +480,132 @@ class SandboxClient:
 
         for response in self._sandbox_stub.ExecStream(request):
             yield response.data
+
+    # ============================================
+    # Session Operations
+    # ============================================
+
+    def create_session(
+        self,
+        sandbox_id: str,
+        shell: str = "/bin/bash",
+        env: Optional[Dict[str, str]] = None,
+    ) -> SessionWrapper:
+        """Create a new shell session within a sandbox.
+        
+        A session maintains a persistent shell process that preserves
+        working directory, environment variables, and background processes.
+        
+        Args:
+            sandbox_id: The ID of the sandbox.
+            shell: The shell binary to use (default: /bin/bash).
+            env: Optional initial environment variables.
+            
+        Returns:
+            A SessionWrapper object for the new session.
+            
+        Example:
+            >>> session = client.create_session(sandbox_id)
+            >>> session.exec("cd /workspace")
+            >>> session.exec("npm install")
+            >>> session.close()
+        """
+        request = sandbox_pb2.CreateSessionRequest(
+            sandbox_id=sandbox_id,
+            shell=shell,
+            env=env or {},
+        )
+        response = self._sandbox_stub.CreateSession(request)
+        session = _proto_to_session(response)
+        return SessionWrapper(self, session)
+
+    def session(
+        self,
+        sandbox_id: str,
+        shell: str = "/bin/bash",
+        env: Optional[Dict[str, str]] = None,
+    ) -> SessionWrapper:
+        """Create a session with context manager support (alias for create_session).
+        
+        Example:
+            >>> with client.session(sandbox_id) as session:
+            ...     session.exec("cd /workspace")
+            ...     session.exec("npm install")
+        """
+        return self.create_session(sandbox_id, shell, env)
+
+    def get_session(self, session_id: str) -> Session:
+        """Get information about a session.
+        
+        Args:
+            session_id: The ID of the session.
+            
+        Returns:
+            The Session object.
+        """
+        request = sandbox_pb2.GetSessionRequest(session_id=session_id)
+        response = self._sandbox_stub.GetSession(request)
+        return _proto_to_session(response)
+
+    def list_sessions(self, sandbox_id: str) -> List[Session]:
+        """List all sessions for a sandbox.
+        
+        Args:
+            sandbox_id: The ID of the sandbox.
+            
+        Returns:
+            List of Session objects.
+        """
+        request = sandbox_pb2.ListSessionsRequest(sandbox_id=sandbox_id)
+        response = self._sandbox_stub.ListSessions(request)
+        return [_proto_to_session(s) for s in response.sessions]
+
+    def destroy_session(self, session_id: str) -> None:
+        """Destroy a session and clean up all child processes.
+        
+        Args:
+            session_id: The ID of the session to destroy.
+        """
+        request = sandbox_pb2.DestroySessionRequest(session_id=session_id)
+        self._sandbox_stub.DestroySession(request)
+
+    def session_exec(
+        self,
+        session_id: str,
+        command: str,
+        timeout: Optional[timedelta] = None,
+    ) -> ExecResult:
+        """Execute a command within a session (stateful).
+        
+        The command runs in the context of the persistent shell,
+        so working directory and environment changes persist.
+        
+        Args:
+            session_id: The ID of the session.
+            command: The command to execute.
+            timeout: Optional timeout duration.
+            
+        Returns:
+            The ExecResult with stdout, stderr, and exit code.
+        """
+        request = sandbox_pb2.SessionExecRequest(
+            session_id=session_id,
+            command=command,
+        )
+        
+        if timeout:
+            request.timeout.CopyFrom(Duration(
+                seconds=int(timeout.total_seconds()),
+                nanos=int((timeout.total_seconds() % 1) * 1e9),
+            ))
+
+        response = self._sandbox_stub.SessionExec(request)
+        return ExecResult(
+            stdout=response.stdout,
+            stderr=response.stderr,
+            exit_code=response.exit_code,
+            duration=_duration_to_timedelta(response.duration),
+        )
 
     # ============================================
     # Codebase Operations

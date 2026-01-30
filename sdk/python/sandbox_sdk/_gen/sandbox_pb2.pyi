@@ -153,3 +153,70 @@ class ExecOutput(_message.Message):
     type: ExecOutput.OutputType
     data: bytes
     def __init__(self, type: _Optional[_Union[ExecOutput.OutputType, str]] = ..., data: _Optional[bytes] = ...) -> None: ...
+
+class Session(_message.Message):
+    __slots__ = ("id", "sandbox_id", "status", "shell", "created_at", "closed_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    SHELL_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CLOSED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    sandbox_id: str
+    status: _common_pb2.SessionStatus
+    shell: str
+    created_at: _timestamp_pb2.Timestamp
+    closed_at: _timestamp_pb2.Timestamp
+    def __init__(self, id: _Optional[str] = ..., sandbox_id: _Optional[str] = ..., status: _Optional[_Union[_common_pb2.SessionStatus, str]] = ..., shell: _Optional[str] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., closed_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class CreateSessionRequest(_message.Message):
+    __slots__ = ("sandbox_id", "shell", "env")
+    class EnvEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
+    SHELL_FIELD_NUMBER: _ClassVar[int]
+    ENV_FIELD_NUMBER: _ClassVar[int]
+    sandbox_id: str
+    shell: str
+    env: _containers.ScalarMap[str, str]
+    def __init__(self, sandbox_id: _Optional[str] = ..., shell: _Optional[str] = ..., env: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class GetSessionRequest(_message.Message):
+    __slots__ = ("session_id",)
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    session_id: str
+    def __init__(self, session_id: _Optional[str] = ...) -> None: ...
+
+class ListSessionsRequest(_message.Message):
+    __slots__ = ("sandbox_id",)
+    SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
+    sandbox_id: str
+    def __init__(self, sandbox_id: _Optional[str] = ...) -> None: ...
+
+class ListSessionsResponse(_message.Message):
+    __slots__ = ("sessions",)
+    SESSIONS_FIELD_NUMBER: _ClassVar[int]
+    sessions: _containers.RepeatedCompositeFieldContainer[Session]
+    def __init__(self, sessions: _Optional[_Iterable[_Union[Session, _Mapping]]] = ...) -> None: ...
+
+class DestroySessionRequest(_message.Message):
+    __slots__ = ("session_id",)
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    session_id: str
+    def __init__(self, session_id: _Optional[str] = ...) -> None: ...
+
+class SessionExecRequest(_message.Message):
+    __slots__ = ("session_id", "command", "timeout")
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    COMMAND_FIELD_NUMBER: _ClassVar[int]
+    TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    session_id: str
+    command: str
+    timeout: _duration_pb2.Duration
+    def __init__(self, session_id: _Optional[str] = ..., command: _Optional[str] = ..., timeout: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ...) -> None: ...

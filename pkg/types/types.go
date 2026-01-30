@@ -15,6 +15,14 @@ const (
 	StatusError    SandboxStatus = "error"
 )
 
+// SessionStatus represents the current state of a shell session.
+type SessionStatus string
+
+const (
+	SessionStatusActive SessionStatus = "active"
+	SessionStatusClosed SessionStatus = "closed"
+)
+
 // Permission represents the access level for a file or directory.
 type Permission string
 
@@ -131,4 +139,39 @@ type CreateSandboxRequest struct {
 type CreateCodebaseRequest struct {
 	Name    string `json:"name"`
 	OwnerID string `json:"owner_id"`
+}
+
+// Session represents a stateful shell session within a sandbox.
+// Unlike Exec which creates a new process for each command,
+// a Session maintains a persistent shell process that preserves
+// working directory, environment variables, and background processes.
+type Session struct {
+	ID        string        `json:"id"`
+	SandboxID string        `json:"sandbox_id"`
+	Status    SessionStatus `json:"status"`
+	Shell     string        `json:"shell"`     // Shell binary, e.g., "/bin/bash"
+	CreatedAt time.Time     `json:"created_at"`
+	ClosedAt  *time.Time    `json:"closed_at,omitempty"`
+
+	// Runtime information (not serialized to JSON)
+	PID int `json:"-"` // PID of the shell process
+}
+
+// SessionConfig contains configuration for creating a new session.
+type SessionConfig struct {
+	Shell string            // Shell binary to use (default: /bin/bash)
+	Env   map[string]string // Initial environment variables
+}
+
+// CreateSessionRequest represents a request to create a new session.
+type CreateSessionRequest struct {
+	SandboxID string            `json:"sandbox_id"`
+	Shell     string            `json:"shell,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+}
+
+// SessionExecRequest represents a command execution request within a session.
+type SessionExecRequest struct {
+	Command string        `json:"command"`
+	Timeout time.Duration `json:"timeout,omitempty"`
 }

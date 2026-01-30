@@ -423,3 +423,191 @@ func TestFileOperations(t *testing.T) {
 		CodebaseId: codebase.Id,
 	})
 }
+
+// TestSessionWorkflow tests the complete session workflow:
+// Create Session -> Execute Commands (with state persistence) -> Destroy Session
+func TestSessionWorkflow(t *testing.T) {
+	env := setupTestEnv(t)
+	defer env.cleanup()
+
+	ctx := context.Background()
+
+	// Step 1: Create a codebase
+	t.Log("Step 1: Creating codebase...")
+	codebase, err := env.codebaseCli.CreateCodebase(ctx, &pb.CreateCodebaseRequest{
+		Name:    "session-test",
+		OwnerId: "user_123",
+	})
+	if err != nil {
+		t.Fatalf("failed to create codebase: %v", err)
+	}
+
+	// Step 2: Create and start a sandbox
+	t.Log("Step 2: Creating and starting sandbox...")
+	sandbox, err := env.sandboxCli.CreateSandbox(ctx, &pb.CreateSandboxRequest{
+		CodebaseId: codebase.Id,
+	})
+	if err != nil {
+		t.Fatalf("failed to create sandbox: %v", err)
+	}
+
+	_, err = env.sandboxCli.StartSandbox(ctx, &pb.StartSandboxRequest{
+		SandboxId: sandbox.Id,
+	})
+	if err != nil {
+		t.Fatalf("failed to start sandbox: %v", err)
+	}
+
+	// Step 3: Create a session
+	t.Log("Step 3: Creating session...")
+	session, err := env.sandboxCli.CreateSession(ctx, &pb.CreateSessionRequest{
+		SandboxId: sandbox.Id,
+		Shell:     "/bin/bash",
+		Env: map[string]string{
+			"INIT_VAR": "initial_value",
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to create session: %v", err)
+	}
+	t.Logf("Created session: %s (shell: %s)", session.Id, session.Shell)
+
+	if session.Status != pb.SessionStatus_SESSION_STATUS_ACTIVE {
+		t.Errorf("expected session status ACTIVE, got %v", session.Status)
+	}
+
+	// Step 4: Get session info
+	t.Log("Step 4: Getting session info...")
+	sessionInfo, err := env.sandboxCli.GetSession(ctx, &pb.GetSessionRequest{
+		SessionId: session.Id,
+	})
+	if err != nil {
+		t.Fatalf("failed to get session: %v", err)
+	}
+	if sessionInfo.Id != session.Id {
+		t.Errorf("session ID mismatch: got %s, want %s", sessionInfo.Id, session.Id)
+	}
+
+	// Step 5: List sessions
+	t.Log("Step 5: Listing sessions...")
+	sessionList, err := env.sandboxCli.ListSessions(ctx, &pb.ListSessionsRequest{
+		SandboxId: sandbox.Id,
+	})
+	if err != nil {
+		t.Fatalf("failed to list sessions: %v", err)
+	}
+	if len(sessionList.Sessions) != 1 {
+		t.Errorf("expected 1 session, got %d", len(sessionList.Sessions))
+	}
+
+	// Step 6: Execute commands in session (mock runtime, so no actual state)
+	t.Log("Step 6: Executing commands in session...")
+	result, err := env.sandboxCli.SessionExec(ctx, &pb.SessionExecRequest{
+		SessionId: session.Id,
+		Command:   "echo 'Hello from session'",
+	})
+	if err != nil {
+		t.Fatalf("failed to execute session command: %v", err)
+	}
+	t.Logf("Session exec result: exit_code=%d", result.ExitCode)
+
+	if result.ExitCode != 0 {
+		t.Errorf("expected exit code 0, got %d", result.ExitCode)
+	}
+
+	// Step 7: Destroy session
+	t.Log("Step 7: Destroying session...")
+	_, err = env.sandboxCli.DestroySession(ctx, &pb.DestroySessionRequest{
+		SessionId: session.Id,
+	})
+	if err != nil {
+		t.Fatalf("failed to destroy session: %v", err)
+	}
+
+	// Verify session is gone
+	_, err = env.sandboxCli.GetSession(ctx, &pb.GetSessionRequest{
+		SessionId: session.Id,
+	})
+	if err == nil {
+		t.Error("expected error getting destroyed session, got nil")
+	}
+	t.Log("Session destroyed successfully")
+
+	// Step 8: Clean up
+	t.Log("Step 8: Cleaning up...")
+	env.sandboxCli.DestroySandbox(ctx, &pb.DestroySandboxRequest{
+		SandboxId: sandbox.Id,
+	})
+	env.codebaseCli.DeleteCodebase(ctx, &pb.DeleteCodebaseRequest{
+		CodebaseId: codebase.Id,
+	})
+
+	t.Log("Session workflow completed successfully!")
+}
+
+// TestMultipleSessions tests creating multiple sessions within a sandbox.
+func TestMultipleSessions(t *testing.T) {
+	env := setupTestEnv(t)
+	defer env.cleanup()
+
+	ctx := context.Background()
+
+	// Setup codebase and sandbox
+	codebase, _ := env.codebaseCli.CreateCodebase(ctx, &pb.CreateCodebaseRequest{
+		Name:    "multi-session-test",
+		OwnerId: "user_123",
+	})
+	sandbox, _ := env.sandboxCli.CreateSandbox(ctx, &pb.CreateSandboxRequest{
+		CodebaseId: codebase.Id,
+	})
+	env.sandboxCli.StartSandbox(ctx, &pb.StartSandboxRequest{
+		SandboxId: sandbox.Id,
+	})
+
+	// Create multiple sessions
+	sessions := make([]*pb.Session, 3)
+	for i := 0; i < 3; i++ {
+		sess, err := env.sandboxCli.CreateSession(ctx, &pb.CreateSessionRequest{
+			SandboxId: sandbox.Id,
+		})
+		if err != nil {
+			t.Fatalf("failed to create session %d: %v", i, err)
+		}
+		sessions[i] = sess
+		t.Logf("Created session %d: %s", i, sess.Id)
+	}
+
+	// List sessions
+	sessionList, err := env.sandboxCli.ListSessions(ctx, &pb.ListSessionsRequest{
+		SandboxId: sandbox.Id,
+	})
+	if err != nil {
+		t.Fatalf("failed to list sessions: %v", err)
+	}
+	if len(sessionList.Sessions) != 3 {
+		t.Errorf("expected 3 sessions, got %d", len(sessionList.Sessions))
+	}
+
+	// Destroy all sessions
+	for _, sess := range sessions {
+		env.sandboxCli.DestroySession(ctx, &pb.DestroySessionRequest{
+			SessionId: sess.Id,
+		})
+	}
+
+	// Verify sessions are gone
+	sessionList, _ = env.sandboxCli.ListSessions(ctx, &pb.ListSessionsRequest{
+		SandboxId: sandbox.Id,
+	})
+	if len(sessionList.Sessions) != 0 {
+		t.Errorf("expected 0 sessions after cleanup, got %d", len(sessionList.Sessions))
+	}
+
+	// Clean up
+	env.sandboxCli.DestroySandbox(ctx, &pb.DestroySandboxRequest{
+		SandboxId: sandbox.Id,
+	})
+	env.codebaseCli.DeleteCodebase(ctx, &pb.DeleteCodebaseRequest{
+		CodebaseId: codebase.Id,
+	})
+}

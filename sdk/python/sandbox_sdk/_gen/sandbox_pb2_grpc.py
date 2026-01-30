@@ -76,6 +76,36 @@ class SandboxServiceStub(object):
                 request_serializer=sandbox__pb2.ExecRequest.SerializeToString,
                 response_deserializer=sandbox__pb2.ExecOutput.FromString,
                 _registered_method=True)
+        self.CreateSession = channel.unary_unary(
+                '/sandbox.v1.SandboxService/CreateSession',
+                request_serializer=sandbox__pb2.CreateSessionRequest.SerializeToString,
+                response_deserializer=sandbox__pb2.Session.FromString,
+                _registered_method=True)
+        self.GetSession = channel.unary_unary(
+                '/sandbox.v1.SandboxService/GetSession',
+                request_serializer=sandbox__pb2.GetSessionRequest.SerializeToString,
+                response_deserializer=sandbox__pb2.Session.FromString,
+                _registered_method=True)
+        self.ListSessions = channel.unary_unary(
+                '/sandbox.v1.SandboxService/ListSessions',
+                request_serializer=sandbox__pb2.ListSessionsRequest.SerializeToString,
+                response_deserializer=sandbox__pb2.ListSessionsResponse.FromString,
+                _registered_method=True)
+        self.DestroySession = channel.unary_unary(
+                '/sandbox.v1.SandboxService/DestroySession',
+                request_serializer=sandbox__pb2.DestroySessionRequest.SerializeToString,
+                response_deserializer=common__pb2.Empty.FromString,
+                _registered_method=True)
+        self.SessionExec = channel.unary_unary(
+                '/sandbox.v1.SandboxService/SessionExec',
+                request_serializer=sandbox__pb2.SessionExecRequest.SerializeToString,
+                response_deserializer=sandbox__pb2.ExecResult.FromString,
+                _registered_method=True)
+        self.SessionExecStream = channel.unary_stream(
+                '/sandbox.v1.SandboxService/SessionExecStream',
+                request_serializer=sandbox__pb2.SessionExecRequest.SerializeToString,
+                response_deserializer=sandbox__pb2.ExecOutput.FromString,
+                _registered_method=True)
 
 
 class SandboxServiceServicer(object):
@@ -138,6 +168,52 @@ class SandboxServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateSession(self, request, context):
+        """============================================
+        Session Management - Stateful Shell Sessions
+        ============================================
+
+        CreateSession creates a new shell session within a sandbox
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSession(self, request, context):
+        """GetSession retrieves information about a session
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListSessions(self, request, context):
+        """ListSessions lists all sessions for a sandbox
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DestroySession(self, request, context):
+        """DestroySession destroys a session and kills all its child processes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SessionExec(self, request, context):
+        """SessionExec executes a command within a session (stateful)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SessionExecStream(self, request, context):
+        """SessionExecStream executes a command within a session and streams output
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SandboxServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -179,6 +255,36 @@ def add_SandboxServiceServicer_to_server(servicer, server):
             'ExecStream': grpc.unary_stream_rpc_method_handler(
                     servicer.ExecStream,
                     request_deserializer=sandbox__pb2.ExecRequest.FromString,
+                    response_serializer=sandbox__pb2.ExecOutput.SerializeToString,
+            ),
+            'CreateSession': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateSession,
+                    request_deserializer=sandbox__pb2.CreateSessionRequest.FromString,
+                    response_serializer=sandbox__pb2.Session.SerializeToString,
+            ),
+            'GetSession': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSession,
+                    request_deserializer=sandbox__pb2.GetSessionRequest.FromString,
+                    response_serializer=sandbox__pb2.Session.SerializeToString,
+            ),
+            'ListSessions': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListSessions,
+                    request_deserializer=sandbox__pb2.ListSessionsRequest.FromString,
+                    response_serializer=sandbox__pb2.ListSessionsResponse.SerializeToString,
+            ),
+            'DestroySession': grpc.unary_unary_rpc_method_handler(
+                    servicer.DestroySession,
+                    request_deserializer=sandbox__pb2.DestroySessionRequest.FromString,
+                    response_serializer=common__pb2.Empty.SerializeToString,
+            ),
+            'SessionExec': grpc.unary_unary_rpc_method_handler(
+                    servicer.SessionExec,
+                    request_deserializer=sandbox__pb2.SessionExecRequest.FromString,
+                    response_serializer=sandbox__pb2.ExecResult.SerializeToString,
+            ),
+            'SessionExecStream': grpc.unary_stream_rpc_method_handler(
+                    servicer.SessionExecStream,
+                    request_deserializer=sandbox__pb2.SessionExecRequest.FromString,
                     response_serializer=sandbox__pb2.ExecOutput.SerializeToString,
             ),
     }
@@ -398,6 +504,168 @@ class SandboxService(object):
             target,
             '/sandbox.v1.SandboxService/ExecStream',
             sandbox__pb2.ExecRequest.SerializeToString,
+            sandbox__pb2.ExecOutput.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateSession(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sandbox.v1.SandboxService/CreateSession',
+            sandbox__pb2.CreateSessionRequest.SerializeToString,
+            sandbox__pb2.Session.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSession(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sandbox.v1.SandboxService/GetSession',
+            sandbox__pb2.GetSessionRequest.SerializeToString,
+            sandbox__pb2.Session.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListSessions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sandbox.v1.SandboxService/ListSessions',
+            sandbox__pb2.ListSessionsRequest.SerializeToString,
+            sandbox__pb2.ListSessionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DestroySession(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sandbox.v1.SandboxService/DestroySession',
+            sandbox__pb2.DestroySessionRequest.SerializeToString,
+            common__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SessionExec(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sandbox.v1.SandboxService/SessionExec',
+            sandbox__pb2.SessionExecRequest.SerializeToString,
+            sandbox__pb2.ExecResult.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SessionExecStream(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/sandbox.v1.SandboxService/SessionExecStream',
+            sandbox__pb2.SessionExecRequest.SerializeToString,
             sandbox__pb2.ExecOutput.FromString,
             options,
             channel_credentials,

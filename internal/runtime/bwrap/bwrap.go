@@ -64,6 +64,7 @@ type BwrapRuntime struct {
 	mu       sync.RWMutex
 	config   *Config
 	states   map[string]*sandboxState
+	sessions map[string]*sessionState // Session ID -> session state
 	isLinux  bool
 }
 
@@ -228,6 +229,9 @@ func (r *BwrapRuntime) Stop(ctx context.Context, sandboxID string) error {
 		return types.ErrNotRunning
 	}
 
+	// Clean up all sessions for this sandbox
+	r.cleanupSessions(sandboxID)
+
 	// Cancel any running processes
 	if state.cancel != nil {
 		state.cancel()
@@ -272,6 +276,9 @@ func (r *BwrapRuntime) Destroy(ctx context.Context, sandboxID string) error {
 	if !ok {
 		return types.ErrSandboxNotFound
 	}
+
+	// Clean up all sessions for this sandbox
+	r.cleanupSessions(sandboxID)
 
 	// Stop any running processes first
 	if state.cancel != nil {

@@ -22,11 +22,9 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
-from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\nsandbox.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/duration.proto\"\x86\x01\n\x0ePermissionRule\x12\x0f\n\x07pattern\x18\x01 \x01(\t\x12%\n\x04type\x18\x02 \x01(\x0e\x32\x17.sandbox.v1.PatternType\x12*\n\npermission\x18\x03 \x01(\x0e\x32\x16.sandbox.v1.Permission\x12\x10\n\x08priority\x18\x04 \x01(\x05\"\x07\n\x05\x45mpty*}\n\nPermission\x12\x1a\n\x16PERMISSION_UNSPECIFIED\x10\x00\x12\x13\n\x0fPERMISSION_NONE\x10\x01\x12\x13\n\x0fPERMISSION_VIEW\x10\x02\x12\x13\n\x0fPERMISSION_READ\x10\x03\x12\x14\n\x10PERMISSION_WRITE\x10\x04*u\n\x0bPatternType\x12\x1c\n\x18PATTERN_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PATTERN_TYPE_GLOB\x10\x01\x12\x1a\n\x16PATTERN_TYPE_DIRECTORY\x10\x02\x12\x15\n\x11PATTERN_TYPE_FILE\x10\x03*\x9d\x01\n\rSandboxStatus\x12\x1e\n\x1aSANDBOX_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n\x16SANDBOX_STATUS_PENDING\x10\x01\x12\x1a\n\x16SANDBOX_STATUS_RUNNING\x10\x02\x12\x1a\n\x16SANDBOX_STATUS_STOPPED\x10\x03\x12\x18\n\x14SANDBOX_STATUS_ERROR\x10\x04\x42>Z<github.com/ajaxzhan/sandbox-rls/api/gen/sandbox/v1;sandboxv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\nsandbox.v1\"\x86\x01\n\x0ePermissionRule\x12\x0f\n\x07pattern\x18\x01 \x01(\t\x12%\n\x04type\x18\x02 \x01(\x0e\x32\x17.sandbox.v1.PatternType\x12*\n\npermission\x18\x03 \x01(\x0e\x32\x16.sandbox.v1.Permission\x12\x10\n\x08priority\x18\x04 \x01(\x05\"\x07\n\x05\x45mpty*}\n\nPermission\x12\x1a\n\x16PERMISSION_UNSPECIFIED\x10\x00\x12\x13\n\x0fPERMISSION_NONE\x10\x01\x12\x13\n\x0fPERMISSION_VIEW\x10\x02\x12\x13\n\x0fPERMISSION_READ\x10\x03\x12\x14\n\x10PERMISSION_WRITE\x10\x04*u\n\x0bPatternType\x12\x1c\n\x18PATTERN_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11PATTERN_TYPE_GLOB\x10\x01\x12\x1a\n\x16PATTERN_TYPE_DIRECTORY\x10\x02\x12\x15\n\x11PATTERN_TYPE_FILE\x10\x03*\x9d\x01\n\rSandboxStatus\x12\x1e\n\x1aSANDBOX_STATUS_UNSPECIFIED\x10\x00\x12\x1a\n\x16SANDBOX_STATUS_PENDING\x10\x01\x12\x1a\n\x16SANDBOX_STATUS_RUNNING\x10\x02\x12\x1a\n\x16SANDBOX_STATUS_STOPPED\x10\x03\x12\x18\n\x14SANDBOX_STATUS_ERROR\x10\x04*e\n\rSessionStatus\x12\x1e\n\x1aSESSION_STATUS_UNSPECIFIED\x10\x00\x12\x19\n\x15SESSION_STATUS_ACTIVE\x10\x01\x12\x19\n\x15SESSION_STATUS_CLOSED\x10\x02\x42>Z<github.com/ajaxzhan/sandbox-rls/api/gen/sandbox/v1;sandboxv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,14 +32,16 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'common_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z<github.com/ajaxzhan/sandbox-rls/api/gen/sandbox/v1;sandboxv1'
-  _globals['_PERMISSION']._serialized_start=239
-  _globals['_PERMISSION']._serialized_end=364
-  _globals['_PATTERNTYPE']._serialized_start=366
-  _globals['_PATTERNTYPE']._serialized_end=483
-  _globals['_SANDBOXSTATUS']._serialized_start=486
-  _globals['_SANDBOXSTATUS']._serialized_end=643
-  _globals['_PERMISSIONRULE']._serialized_start=94
-  _globals['_PERMISSIONRULE']._serialized_end=228
-  _globals['_EMPTY']._serialized_start=230
-  _globals['_EMPTY']._serialized_end=237
+  _globals['_PERMISSION']._serialized_start=174
+  _globals['_PERMISSION']._serialized_end=299
+  _globals['_PATTERNTYPE']._serialized_start=301
+  _globals['_PATTERNTYPE']._serialized_end=418
+  _globals['_SANDBOXSTATUS']._serialized_start=421
+  _globals['_SANDBOXSTATUS']._serialized_end=578
+  _globals['_SESSIONSTATUS']._serialized_start=580
+  _globals['_SESSIONSTATUS']._serialized_end=681
+  _globals['_PERMISSIONRULE']._serialized_start=29
+  _globals['_PERMISSIONRULE']._serialized_end=163
+  _globals['_EMPTY']._serialized_start=165
+  _globals['_EMPTY']._serialized_end=172
 # @@protoc_insertion_point(module_scope)

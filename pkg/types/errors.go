@@ -10,6 +10,8 @@ import (
 var (
 	ErrSandboxNotFound  = errors.New("sandbox not found")
 	ErrCodebaseNotFound = errors.New("codebase not found")
+	ErrSessionNotFound  = errors.New("session not found")
+	ErrSessionClosed    = errors.New("session is closed")
 	ErrInvalidStatus    = errors.New("invalid sandbox status for this operation")
 	ErrAlreadyRunning   = errors.New("sandbox is already running")
 	ErrNotRunning       = errors.New("sandbox is not running")
@@ -62,4 +64,19 @@ func (e *ExecError) Error() string {
 		return fmt.Sprintf("exec failed in sandbox %s: exit code %d: %s", e.SandboxID, e.ExitCode, e.Stderr)
 	}
 	return fmt.Sprintf("exec failed in sandbox %s: exit code %d", e.SandboxID, e.ExitCode)
+}
+
+// SessionError represents a session-related error with context.
+type SessionError struct {
+	SessionID string
+	Op        string
+	Err       error
+}
+
+func (e *SessionError) Error() string {
+	return fmt.Sprintf("session %s: %s: %v", e.SessionID, e.Op, e.Err)
+}
+
+func (e *SessionError) Unwrap() error {
+	return e.Err
 }
