@@ -65,6 +65,7 @@ Rule priority: **more specific wins** (file-level > directory-level > glob).
 - **Fine-grained permission control**: `none` / `view` / `read` / `write` with glob patterns and deterministic priority rules
 - **Lightweight isolation**: bubblewrap (`bwrap`) runtime for fast sandbox startup
 - **Docker runtime**: optional Docker-based isolation with custom image support and resource limits
+- **Delta Layer (COW)**: Copy-On-Write isolation prevents concurrent write conflicts; changes are atomically synced on exec completion
 - **Stateful sessions**: persistent shell sessions that maintain working directory and environment variables
 - **Resource limits**: memory, CPU, and process count limits (via Docker runtime)
 - **Multi-sandbox codebase sharing**: same folder can be mounted by multiple agents with different permissions
@@ -94,6 +95,7 @@ See [ROADMAP.md](ROADMAP.md) for the detailed development plan.
 | Session support | ✅ Stateful shell sessions with working directory and env var persistence |
 | Docker runtime | ✅ Full Docker isolation with custom image support |
 | Resource limits | ✅ Memory, CPU, and process count limits |
+| Delta Layer (COW) | ✅ Copy-On-Write isolation for multi-sandbox write safety |
 
 **Current priorities:**
 
@@ -127,9 +129,34 @@ See [ROADMAP.md](ROADMAP.md) for the detailed development plan.
                           │
 ┌─────────────────────────▼───────────────────────────────────┐
 │                   Isolation Layer                           │
-│       bwrap Runtime │ Docker Runtime │ FUSE FileSystem      │
+│  bwrap Runtime │ Docker Runtime │ FUSE FS │ Delta Layer     │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Delta Layer (COW)
+
+When multiple sandboxes share the same codebase, the Delta Layer provides write isolation:
+
+```
+Sandbox A                    Sandbox B
+    │                            │
+    ▼                            ▼
+┌─────────┐                ┌─────────┐
+│ Delta A │                │ Delta B │  ← Writes go here (COW)
+└────┬────┘                └────┬────┘
+     │                          │
+     └──────────┬───────────────┘
+                ▼
+        ┌──────────────┐
+        │Shared Storage│  ← Reads fallback here
+        │  (Codebase)  │  ← Sync on exec() return
+        └──────────────┘
+```
+
+- **Read**: Delta first, fallback to source
+- **Write**: Copy-On-Write to Delta directory
+- **Delete**: Whiteout markers in Delta
+- **Sync**: LWW (Last-Writer-Wins) on exec() completion
 
 ## Quick Start
 
@@ -467,7 +494,7 @@ sandbox-rls/
 │   │   ├── bwrap/       # bubblewrap implementation (with session support)
 │   │   ├── docker/      # Docker implementation (with session & resource limits)
 │   │   └── mock/        # Mock runtime for testing
-│   ├── fs/              # FUSE filesystem
+│   ├── fs/              # FUSE filesystem + Delta Layer (COW)
 │   └── codebase/        # Codebase management
 ├── pkg/types/           # Public types
 ├── sdk/

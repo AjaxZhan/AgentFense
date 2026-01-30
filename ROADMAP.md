@@ -24,6 +24,7 @@
 | **Glob 模式匹配** | 支持 `**/*.py`、`/secrets/**` 等模式 |
 | **bwrap 隔离** | 基于 bubblewrap 的 namespace 隔离 |
 | **多沙箱共享 Codebase** | 同一份代码可被多个 Agent 以不同权限访问 |
+| **Delta Layer (COW)** | Copy-On-Write 隔离层，防止并发写冲突，支持原子性提交 |
 | **Python SDK** | 完整的 Python 客户端 |
 | **gRPC + REST API** | 双协议支持 |
 | **Session 支持** | 有状态 shell sessions，保持工作目录、环境变量 |
@@ -85,7 +86,36 @@ sandbox = client.create_sandbox(
 - 支持内存、CPU、进程数限制
 - 可在创建时指定
 
-#### 1.3 命令超时与熔断
+#### 1.3 Delta Layer (COW 隔离) ✅
+
+**已实现**：当多个 Sandbox 共享同一个 Codebase 时，通过 Copy-On-Write 机制实现写隔离。
+
+**解决的问题**：
+- 防止中间状态暴露给其他 Agent
+- 写操作失败时可以回滚
+- 保证数据一致性
+
+**实现细节**：
+- 读取优先查 Delta 目录，fallback 到 Source
+- 写入自动 COW 到 Delta 目录
+- 删除操作使用 Whiteout 标记
+- `exec()` 返回时自动 Sync 到共享存储（LWW 策略）
+- 对用户透明，不增加心智负担
+
+```
+时间线示例：
+T=0: Agent A exec 开始
+T=1: script.py 写入 delta-A/a.txt
+T=2: script.py 写入 delta-A/b.txt
+T=3: script.py 执行完成
+T=4: Sync() 将 delta-A/* 合并到 shared（LWW）
+T=5: exec 返回结果给 Agent A
+T=6: Agent B 现在能看到 a.txt 和 b.txt
+
+如果 T=2 时崩溃：shared storage 无变化，Agent B 看不到任何中间状态
+```
+
+#### 1.4 命令超时与熔断
 
 **问题**：死循环或长时间运行的命令会卡住系统。
 
@@ -323,8 +353,9 @@ sandbox = pool.acquire()  # 毫秒级获取
 | v0.1 | 基础功能：权限控制、bwrap 隔离、Python SDK | ✅ 已完成 |
 | v0.2 | Session 支持、资源限制 | ✅ 已完成 |
 | v0.3 | Docker Runtime | ✅ 已完成 |
-| v0.4 | 一键启动 API、预设模板、CLI 工具 | 📋 计划中 |
-| v0.5 | Go SDK、配置文件支持 | 📋 计划中 |
+| v0.4 | Delta Layer（COW 写隔离） | ✅ 已完成 |
+| v0.5 | 一键启动 API、预设模板、CLI 工具 | 📋 计划中 |
+| v0.6 | Go SDK、配置文件支持 | 📋 计划中 |
 | v1.0 | 多 Agent 协作、生产就绪 | 📋 计划中 |
 
 ---
