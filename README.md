@@ -83,10 +83,20 @@ The table below focuses on the agent-centric question: **can you safely run untr
 
 ## Roadmap
 
-- [ ] 1. **Go SDK support**: Provide a first-class Go client with full feature parity to the Python SDK
-- [ ] 2. **Universal codebase sources**: Support mounting any data source (e.g. REST APIs, RDB, JSON, S3, etc.) as a `Codebase` so agents can interact with them using standard filesystem operations
-- [ ] 3. **Multi-agent integration**: Enable multi-agent systems, starting with Anthropic AI integration
-- [ ] 4. **Docker runtime support**: Add Docker as an alternative runtime to provide standard environment support
+See [ROADMAP.md](ROADMAP.md) for the detailed development plan.
+
+**Current priorities:**
+
+| Phase | Focus | Key Features |
+|-------|-------|--------------|
+| **Phase 1** | Core functionality | Session support, resource limits (cgroups v2), timeout/circuit breaker |
+| **Phase 2** | Isolation + DX | Docker runtime, one-liner API, permission presets, CLI tool, Go SDK |
+| **Phase 3** | Multi-agent | File locking, agent communication, external data sources |
+
+**What we're NOT building** (out of scope):
+- MicroVM isolation (Firecracker) - overkill for individual developers
+- Hibernate/wake (CRIU) - too complex, short-lived sandboxes don't need it
+- Million-scale concurrency - we're a single-node solution
 
 ## Architecture
 
