@@ -1,7 +1,7 @@
 """Tests for the presets module."""
 
 import pytest
-from sandbox_sdk.presets import (
+from sandbox_rls.presets import (
     PRESETS,
     get_preset,
     get_preset_dicts,
@@ -9,7 +9,7 @@ from sandbox_sdk.presets import (
     list_presets,
     register_preset,
 )
-from sandbox_sdk.types import Permission, PatternType, PermissionRule
+from sandbox_rls.types import Permission, PatternType, PermissionRule
 
 
 class TestGetPreset:

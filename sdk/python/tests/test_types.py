@@ -1,11 +1,11 @@
-"""Tests for sandbox_sdk types."""
+"""Tests for sandbox_rls types."""
 
 import pytest
-from sandbox_sdk import (
+from sandbox_rls.types import (
     Permission,
     PatternType,
     PermissionRule,
-    Sandbox,
+    Sandbox as SandboxInfo,
     SandboxStatus,
     Codebase,
     ExecResult,
@@ -75,7 +75,7 @@ class TestSandbox:
     """Tests for Sandbox dataclass."""
 
     def test_create_sandbox(self):
-        sandbox = Sandbox(
+        sandbox = SandboxInfo(
             id="sb_123",
             codebase_id="cb_456",
             status=SandboxStatus.RUNNING,

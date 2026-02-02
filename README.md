@@ -34,7 +34,7 @@ Sandbox RLS is built for the missing middle ground: **“You can edit `/docs`, y
 Give an agent a real repo with one line of code - using built-in permission presets that automatically hide secrets:
 
 ```python
-from sandbox_sdk import Sandbox
+from sandbox_rls import Sandbox
 
 # One-liner: create sandbox from local directory with "agent-safe" preset
 with Sandbox.from_local("./my-project") as sandbox:
@@ -273,7 +273,7 @@ pip install -e .
 The easiest way to use the SDK:
 
 ```python
-from sandbox_sdk import Sandbox, RuntimeType, ResourceLimits
+from sandbox_rls import Sandbox, RuntimeType, ResourceLimits
 
 # One-liner: create sandbox from local directory
 with Sandbox.from_local("./my-project") as sandbox:
@@ -311,7 +311,7 @@ Built-in presets for common scenarios:
 | `development` | Full access except secrets |
 
 ```python
-from sandbox_sdk import list_presets, extend_preset
+from sandbox_rls import list_presets, extend_preset
 
 # List available presets
 print(list_presets())  # ['agent-safe', 'development', 'full-access', 'read-only', 'view-only']
@@ -326,7 +326,7 @@ rules = extend_preset(
 ##### Error Handling
 
 ```python
-from sandbox_sdk import Sandbox, SandboxError, CommandTimeoutError, CommandExecutionError
+from sandbox_rls import Sandbox, SandboxError, CommandTimeoutError, CommandExecutionError
 
 try:
     with Sandbox.from_local("./project") as sandbox:
@@ -344,7 +344,7 @@ except SandboxError as e:
 For fine-grained control, use `SandboxClient` directly. This example demonstrates all four permission levels:
 
 ```python
-from sandbox_sdk import SandboxClient, RuntimeType, ResourceLimits
+from sandbox_rls import SandboxClient, RuntimeType, ResourceLimits
 
 # Connect to the server (gRPC endpoint)
 client = SandboxClient(endpoint="localhost:9000")

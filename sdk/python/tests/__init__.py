@@ -1,1 +1,1 @@
-"""Tests for sandbox_sdk package."""
+"""Tests for sandbox_rls package."""

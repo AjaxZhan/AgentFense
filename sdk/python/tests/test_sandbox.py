@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
-from sandbox_sdk.sandbox import Sandbox
-from sandbox_sdk.types import (
+from sandbox_rls.sandbox import Sandbox
+from sandbox_rls.types import (
     Codebase,
     ExecResult,
     Permission,
@@ -18,7 +18,7 @@ from sandbox_sdk.types import (
     Sandbox as SandboxInfo,
     SandboxStatus,
 )
-from sandbox_sdk.exceptions import CommandExecutionError
+from sandbox_rls.exceptions import CommandExecutionError
 
 
 class TestSandboxProperties:
@@ -288,10 +288,10 @@ class TestSandboxFileOperations:
             codebase=codebase,
         )
         
-        content = sandbox.read_file("/test.txt")
+        content = sandbox.read_file("/workspace/test.txt")
         
         assert content == "Hello World"
-        mock_client.download_file.assert_called_once_with("cb_456", "/test.txt")
+        mock_client.download_file.assert_called_once_with("cb_456", "test.txt")
     
     def test_write_file_encodes_string(self):
         """Test that write_file encodes string to bytes."""
@@ -309,18 +309,18 @@ class TestSandboxFileOperations:
             codebase=codebase,
         )
         
-        sandbox.write_file("/test.txt", "Hello")
+        sandbox.write_file("/workspace/test.txt", "Hello")
         
         mock_client.upload_file.assert_called_once_with(
             "cb_456",
-            "/test.txt",
+            "test.txt",
             b"Hello",
         )
     
     def test_list_files_returns_paths(self):
         """Test that list_files returns file paths."""
         mock_client = MagicMock()
-        from sandbox_sdk.types import FileInfo
+        from sandbox_rls.types import FileInfo
         mock_client.list_files.return_value = [
             FileInfo(path="/a.txt", name="a.txt", is_dir=False, size=100),
             FileInfo(path="/b.txt", name="b.txt", is_dir=False, size=200),
@@ -411,7 +411,7 @@ class TestSandboxFromLocal:
             
             assert "not a directory" in str(exc_info.value)
     
-    @patch("sandbox_sdk.sandbox.SandboxClient")
+    @patch("sandbox_rls.sandbox.SandboxClient")
     def test_from_local_creates_resources(self, mock_client_class):
         """Test that from_local creates codebase and sandbox."""
         # Set up mocks

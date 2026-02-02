@@ -1,4 +1,4 @@
-"""Sandbox SDK - Python client for the Sandbox RLS service.
+"""Sandbox RLS - Python client for the Sandbox RLS service.
 
 This SDK provides both low-level and high-level APIs for interacting
 with the Sandbox service.
@@ -6,7 +6,7 @@ with the Sandbox service.
 High-Level API (Recommended):
     Use the Sandbox class for the simplest experience:
     
-    >>> from sandbox_sdk import Sandbox
+    >>> from sandbox_rls import Sandbox
     >>> 
     >>> # One-liner to create and run commands in a sandbox
     >>> with Sandbox.from_local("./my-project") as sandbox:
@@ -26,7 +26,7 @@ High-Level API (Recommended):
 Low-Level API:
     Use SandboxClient for fine-grained control:
     
-    >>> from sandbox_sdk import SandboxClient
+    >>> from sandbox_rls import SandboxClient
     >>> 
     >>> client = SandboxClient(endpoint="localhost:9000")
     >>> 
@@ -162,3 +162,4 @@ __all__ = [
     "generate_owner_id",
     "count_files",
 ]
+

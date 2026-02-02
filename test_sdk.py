@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 
 try:
-    from sandbox_sdk import (
+    from sandbox_rls import (
         Sandbox,
         SandboxClient,
         RuntimeType,
@@ -32,7 +32,7 @@ try:
         PermissionDeniedError,
     )
 except ImportError:
-    print("❌ 无法导入 sandbox_sdk")
+    print("❌ 无法导入 sandbox_rls")
     print("请先安装 SDK: cd sdk/python && pip install -e .")
     sys.exit(1)
 

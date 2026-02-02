@@ -1,11 +1,11 @@
-# Sandbox SDK for Python
+# Sandbox RLS SDK for Python
 
 Python client library for the Sandbox RLS service - a sandbox infrastructure for AI Agents with fine-grained file permission control.
 
 ## Installation
 
 ```bash
-pip install sandbox-sdk
+pip install sandbox-rls
 ```
 
 Or install from source:
@@ -20,7 +20,7 @@ pip install -e .
 The easiest way to use the SDK is with the high-level `Sandbox` class:
 
 ```python
-from sandbox_sdk import Sandbox
+from sandbox_rls import Sandbox
 
 # One-liner to create a sandbox from a local directory
 with Sandbox.from_local("./my-project") as sandbox:
@@ -38,7 +38,7 @@ This automatically:
 ### Using Docker Runtime with Resource Limits
 
 ```python
-from sandbox_sdk import Sandbox, RuntimeType, ResourceLimits
+from sandbox_rls import Sandbox, RuntimeType, ResourceLimits
 
 with Sandbox.from_local(
     "./my-project",
@@ -71,7 +71,7 @@ The SDK includes several built-in permission presets:
 | `view-only` | Can see file names but not read content |
 
 ```python
-from sandbox_sdk import list_presets, get_preset, extend_preset
+from sandbox_rls import list_presets, get_preset, extend_preset
 
 # List all available presets
 print(list_presets())  # ['agent-safe', 'development', 'full-access', 'read-only', 'view-only']
@@ -88,7 +88,7 @@ rules = extend_preset(
 The SDK provides semantic exception classes:
 
 ```python
-from sandbox_sdk import Sandbox, SandboxError, CommandTimeoutError, CommandExecutionError
+from sandbox_rls import Sandbox, SandboxError, CommandTimeoutError, CommandExecutionError
 
 try:
     with Sandbox.from_local("./my-project") as sandbox:
@@ -106,7 +106,7 @@ except SandboxError as e:
 For fine-grained control, use the `SandboxClient` directly:
 
 ```python
-from sandbox_sdk import SandboxClient, RuntimeType, ResourceLimits
+from sandbox_rls import SandboxClient, RuntimeType, ResourceLimits
 
 # Connect to the sandbox server
 client = SandboxClient(endpoint="localhost:9000")
@@ -159,7 +159,7 @@ The SDK supports four permission levels:
 You can use glob patterns, directory paths, or file paths:
 
 ```python
-from sandbox_sdk import PermissionRule, Permission, PatternType
+from sandbox_rls import PermissionRule, Permission, PatternType
 
 permissions = [
     # Glob pattern - matches all .py files
@@ -332,11 +332,11 @@ pip install -e ".[dev]"
 pytest
 
 # Format code
-black sandbox_sdk tests
-ruff check --fix sandbox_sdk tests
+black sandbox_rls tests
+ruff check --fix sandbox_rls tests
 
 # Type check
-mypy sandbox_sdk
+mypy sandbox_rls
 ```
 
 ## License

@@ -2,7 +2,7 @@ bin/
 .env
 .venv/
 plans/
-sandbox_sdk.egg-info/
+sandbox_rls.egg-info/
 .pytest_cache/
 __pycache__/
 *.pyc
