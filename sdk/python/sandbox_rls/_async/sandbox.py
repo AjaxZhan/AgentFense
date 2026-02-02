@@ -1,18 +1,17 @@
-"""High-level Sandbox API for easy sandbox management.
+"""Async high-level Sandbox API for easy sandbox management.
 
-This module provides a user-friendly interface for creating and managing
-sandboxes with minimal boilerplate. It wraps the low-level SandboxClient
-with convenient methods and automatic resource management.
+This module provides an asynchronous user-friendly interface for creating and
+managing sandboxes with minimal boilerplate.
 """
 
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Union
+from typing import AsyncIterator, Dict, List, Optional, Union
 
-from .client import SandboxClient, SessionWrapper
-from .exceptions import SandboxError, SandboxNotRunningError
-from .presets import get_preset, get_preset_dicts
-from .types import (
+from .client import AsyncSandboxClient, AsyncSessionWrapper
+from ..exceptions import SandboxError, SandboxNotRunningError
+from ..presets import get_preset, get_preset_dicts
+from ..types import (
     Codebase,
     ExecResult,
     Permission,
@@ -22,7 +21,7 @@ from .types import (
     Sandbox as SandboxInfo,
     SandboxStatus,
 )
-from .utils import (
+from ..utils import (
     generate_codebase_name,
     generate_owner_id,
     human_readable_size,
@@ -30,46 +29,46 @@ from .utils import (
 )
 
 
-class Sandbox:
-    """High-level sandbox interface with context manager support.
+class AsyncSandbox:
+    """Async high-level sandbox interface with context manager support.
     
-    This class provides a simplified API for working with sandboxes,
+    This class provides an asynchronous simplified API for working with sandboxes,
     handling the complexity of codebase creation, file upload, and
     sandbox lifecycle management automatically.
     
     Example:
         >>> # One-liner to create a sandbox from local directory
-        >>> with Sandbox.from_local("./my-project") as sandbox:
-        ...     result = sandbox.run("python main.py")
+        >>> async with await AsyncSandbox.from_local("./my-project") as sandbox:
+        ...     result = await sandbox.run("python main.py")
         ...     print(result.stdout)
         
         >>> # With custom configuration
-        >>> with Sandbox.from_local(
+        >>> async with await AsyncSandbox.from_local(
         ...     "./my-project",
         ...     preset="agent-safe",
         ...     runtime=RuntimeType.DOCKER,
         ...     image="python:3.11-slim",
         ... ) as sandbox:
-        ...     with sandbox.session() as session:
-        ...         session.exec("pip install -r requirements.txt")
-        ...         result = session.exec("pytest")
+        ...     async with sandbox.session() as session:
+        ...         await session.exec("pip install -r requirements.txt")
+        ...         result = await session.exec("pytest")
     """
     
     def __init__(
         self,
-        client: SandboxClient,
+        client: AsyncSandboxClient,
         sandbox_info: SandboxInfo,
         codebase: Codebase,
         owns_client: bool = False,
         owns_codebase: bool = False,
     ):
-        """Initialize a Sandbox instance.
+        """Initialize an AsyncSandbox instance.
         
         Note: Use the class methods (from_local, from_codebase) instead
         of calling this constructor directly.
         
         Args:
-            client: The SandboxClient instance.
+            client: The AsyncSandboxClient instance.
             sandbox_info: The Sandbox info object.
             codebase: The associated Codebase.
             owns_client: Whether this Sandbox owns the client (should close it).
@@ -83,7 +82,7 @@ class Sandbox:
         self._destroyed = False
     
     @classmethod
-    def from_local(
+    async def from_local(
         cls,
         path: str,
         preset: str = "agent-safe",
@@ -98,7 +97,7 @@ class Sandbox:
         ignore_patterns: Optional[List[str]] = None,
         labels: Optional[Dict[str, str]] = None,
         auto_start: bool = True,
-    ) -> "Sandbox":
+    ) -> "AsyncSandbox":
         """Create a sandbox from a local directory.
         
         This is the recommended way to create a sandbox. It automatically:
@@ -123,17 +122,17 @@ class Sandbox:
             auto_start: Whether to automatically start the sandbox.
             
         Returns:
-            A Sandbox instance ready for use.
+            An AsyncSandbox instance ready for use.
             
         Raises:
             ValueError: If the path doesn't exist or isn't a directory.
             SandboxError: If sandbox creation fails.
             
         Example:
-            >>> sandbox = Sandbox.from_local("./my-project")
-            >>> result = sandbox.run("ls -la")
+            >>> sandbox = await AsyncSandbox.from_local("./my-project")
+            >>> result = await sandbox.run("ls -la")
             >>> print(result.stdout)
-            >>> sandbox.destroy()
+            >>> await sandbox.destroy()
         """
         # Validate path
         dir_path = Path(path).resolve()
@@ -143,7 +142,7 @@ class Sandbox:
             raise ValueError(f"Path is not a directory: {path}")
         
         # Create client
-        client = SandboxClient(endpoint=endpoint, secure=secure)
+        client = AsyncSandboxClient(endpoint=endpoint, secure=secure)
         
         codebase = None
         sandbox_info = None
@@ -155,13 +154,13 @@ class Sandbox:
                 codebase_name = generate_codebase_name(path)
             
             # Create codebase
-            codebase = client.create_codebase(name=codebase_name, owner_id=owner_id)
+            codebase = await client.create_codebase(name=codebase_name, owner_id=owner_id)
             
             # Upload files
             file_count = 0
             total_size = 0
             for rel_path, content in walk_directory(str(dir_path), ignore_patterns):
-                client.upload_file(codebase.id, rel_path, content)
+                await client.upload_file(codebase.id, rel_path, content)
                 file_count += 1
                 total_size += len(content)
             
@@ -173,7 +172,7 @@ class Sandbox:
                 perm_rules.extend(permissions)
             
             # Create sandbox
-            sandbox_info = client.create_sandbox(
+            sandbox_info = await client.create_sandbox(
                 codebase_id=codebase.id,
                 permissions=perm_rules,
                 runtime=runtime,
@@ -184,7 +183,7 @@ class Sandbox:
             
             # Start sandbox if requested
             if auto_start:
-                sandbox_info = client.start_sandbox(sandbox_info.id)
+                sandbox_info = await client.start_sandbox(sandbox_info.id)
             
             return cls(
                 client=client,
@@ -198,20 +197,20 @@ class Sandbox:
             # Clean up sandbox if it was created
             if sandbox_info is not None:
                 try:
-                    client.destroy_sandbox(sandbox_info.id)
+                    await client.destroy_sandbox(sandbox_info.id)
                 except Exception:
                     pass  # Best effort cleanup
             # Clean up codebase if it was created
             if codebase is not None:
                 try:
-                    client.delete_codebase(codebase.id)
+                    await client.delete_codebase(codebase.id)
                 except Exception:
                     pass  # Best effort cleanup
-            client.close()
+            await client.close()
             raise
     
     @classmethod
-    def from_codebase(
+    async def from_codebase(
         cls,
         codebase_id: str,
         preset: str = "agent-safe",
@@ -223,7 +222,7 @@ class Sandbox:
         secure: bool = False,
         labels: Optional[Dict[str, str]] = None,
         auto_start: bool = True,
-    ) -> "Sandbox":
+    ) -> "AsyncSandbox":
         """Create a sandbox from an existing codebase.
         
         Use this when you want to create multiple sandboxes from the same
@@ -242,14 +241,14 @@ class Sandbox:
             auto_start: Whether to automatically start the sandbox.
             
         Returns:
-            A Sandbox instance ready for use.
+            An AsyncSandbox instance ready for use.
         """
-        client = SandboxClient(endpoint=endpoint, secure=secure)
+        client = AsyncSandboxClient(endpoint=endpoint, secure=secure)
         
         sandbox_info = None
         try:
             # Get codebase info
-            codebase = client.get_codebase(codebase_id)
+            codebase = await client.get_codebase(codebase_id)
             
             # Build permissions
             perm_rules: List[Union[PermissionRule, Dict]] = []
@@ -258,7 +257,7 @@ class Sandbox:
                 perm_rules.extend(permissions)
             
             # Create sandbox
-            sandbox_info = client.create_sandbox(
+            sandbox_info = await client.create_sandbox(
                 codebase_id=codebase_id,
                 permissions=perm_rules,
                 runtime=runtime,
@@ -268,7 +267,7 @@ class Sandbox:
             )
             
             if auto_start:
-                sandbox_info = client.start_sandbox(sandbox_info.id)
+                sandbox_info = await client.start_sandbox(sandbox_info.id)
             
             return cls(
                 client=client,
@@ -282,19 +281,19 @@ class Sandbox:
             # Clean up sandbox if it was created
             if sandbox_info is not None:
                 try:
-                    client.destroy_sandbox(sandbox_info.id)
+                    await client.destroy_sandbox(sandbox_info.id)
                 except Exception:
                     pass  # Best effort cleanup
-            client.close()
+            await client.close()
             raise
     
     @classmethod
-    def connect(
+    async def connect(
         cls,
         sandbox_id: str,
         endpoint: str = "localhost:9000",
         secure: bool = False,
-    ) -> "Sandbox":
+    ) -> "AsyncSandbox":
         """Connect to an existing sandbox.
         
         Use this to reconnect to a sandbox that was created earlier.
@@ -305,16 +304,16 @@ class Sandbox:
             secure: Whether to use TLS.
             
         Returns:
-            A Sandbox instance connected to the existing sandbox.
+            An AsyncSandbox instance connected to the existing sandbox.
         """
-        client = SandboxClient(endpoint=endpoint, secure=secure)
+        client = AsyncSandboxClient(endpoint=endpoint, secure=secure)
         
         try:
             # Get sandbox info
-            sandbox_info = client.get_sandbox(sandbox_id)
+            sandbox_info = await client.get_sandbox(sandbox_id)
             
             # Get codebase info
-            codebase = client.get_codebase(sandbox_info.codebase_id)
+            codebase = await client.get_codebase(sandbox_info.codebase_id)
             
             return cls(
                 client=client,
@@ -325,7 +324,7 @@ class Sandbox:
             )
             
         except Exception as e:
-            client.close()
+            await client.close()
             raise
     
     # ============================================
@@ -366,36 +365,36 @@ class Sandbox:
     # Lifecycle Methods
     # ============================================
     
-    def start(self) -> "Sandbox":
+    async def start(self) -> "AsyncSandbox":
         """Start the sandbox if it's not already running.
         
         Returns:
             Self for method chaining.
         """
         if self._sandbox_info.status != SandboxStatus.RUNNING:
-            self._sandbox_info = self._client.start_sandbox(self.id)
+            self._sandbox_info = await self._client.start_sandbox(self.id)
         return self
     
-    def stop(self) -> "Sandbox":
+    async def stop(self) -> "AsyncSandbox":
         """Stop the sandbox.
         
         Returns:
             Self for method chaining.
         """
         if self._sandbox_info.status == SandboxStatus.RUNNING:
-            self._sandbox_info = self._client.stop_sandbox(self.id)
+            self._sandbox_info = await self._client.stop_sandbox(self.id)
         return self
     
-    def refresh(self) -> "Sandbox":
+    async def refresh(self) -> "AsyncSandbox":
         """Refresh sandbox info from the server.
         
         Returns:
             Self for method chaining.
         """
-        self._sandbox_info = self._client.get_sandbox(self.id)
+        self._sandbox_info = await self._client.get_sandbox(self.id)
         return self
     
-    def destroy(self, delete_codebase: Optional[bool] = None) -> None:
+    async def destroy(self, delete_codebase: Optional[bool] = None) -> None:
         """Destroy the sandbox and optionally the codebase.
         
         Args:
@@ -407,17 +406,17 @@ class Sandbox:
         
         try:
             # Destroy sandbox
-            self._client.destroy_sandbox(self.id)
+            await self._client.destroy_sandbox(self.id)
             
             # Delete codebase if we own it
             should_delete = delete_codebase if delete_codebase is not None else self._owns_codebase
             if should_delete:
-                self._client.delete_codebase(self.codebase_id)
+                await self._client.delete_codebase(self.codebase_id)
             
         finally:
             # Close client if we own it
             if self._owns_client:
-                self._client.close()
+                await self._client.close()
             
             self._destroyed = True
     
@@ -425,7 +424,7 @@ class Sandbox:
     # Execution Methods
     # ============================================
     
-    def run(
+    async def run(
         self,
         command: str,
         timeout: int = 60,
@@ -453,13 +452,13 @@ class Sandbox:
             CommandTimeoutError: If the command times out.
             
         Example:
-            >>> result = sandbox.run("python --version")
+            >>> result = await sandbox.run("python --version")
             >>> print(result.stdout)
             Python 3.11.0
         """
-        from .exceptions import CommandExecutionError
+        from ..exceptions import CommandExecutionError
         
-        result = self._client.exec(
+        result = await self._client.exec(
             sandbox_id=self.id,
             command=command,
             timeout=timedelta(seconds=timeout),
@@ -477,7 +476,7 @@ class Sandbox:
         
         return result
     
-    def exec(
+    async def exec(
         self,
         command: str,
         stdin: Optional[str] = None,
@@ -497,7 +496,7 @@ class Sandbox:
         Returns:
             The ExecResult with stdout, stderr, and exit code.
         """
-        return self._client.exec(
+        return await self._client.exec(
             sandbox_id=self.id,
             command=command,
             stdin=stdin,
@@ -506,14 +505,14 @@ class Sandbox:
             timeout=timeout,
         )
     
-    def exec_stream(
+    async def exec_stream(
         self,
         command: str,
         stdin: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         workdir: Optional[str] = None,
         timeout: Optional[timedelta] = None,
-    ) -> Iterator[bytes]:
+    ) -> AsyncIterator[bytes]:
         """Execute a command and stream the output.
         
         Args:
@@ -526,24 +525,25 @@ class Sandbox:
         Yields:
             Chunks of output data.
         """
-        return self._client.exec_stream(
+        async for chunk in self._client.exec_stream(
             sandbox_id=self.id,
             command=command,
             stdin=stdin,
             env=env,
             workdir=workdir,
             timeout=timeout,
-        )
+        ):
+            yield chunk
     
     # ============================================
     # Session Methods
     # ============================================
     
-    def session(
+    async def session(
         self,
         shell: str = "/bin/sh",
         env: Optional[Dict[str, str]] = None,
-    ) -> SessionWrapper:
+    ) -> AsyncSessionWrapper:
         """Create a new shell session.
         
         A session maintains a persistent shell process that preserves
@@ -554,15 +554,15 @@ class Sandbox:
             env: Initial environment variables.
             
         Returns:
-            A SessionWrapper for the new session.
+            An AsyncSessionWrapper for the new session.
             
         Example:
-            >>> with sandbox.session() as session:
-            ...     session.exec("cd /workspace")
-            ...     session.exec("source venv/bin/activate")
-            ...     result = session.exec("python main.py")
+            >>> async with sandbox.session() as session:
+            ...     await session.exec("cd /workspace")
+            ...     await session.exec("source venv/bin/activate")
+            ...     result = await session.exec("python main.py")
         """
-        return self._client.create_session(
+        return await self._client.create_session(
             sandbox_id=self.id,
             shell=shell,
             env=env,
@@ -574,21 +574,16 @@ class Sandbox:
     
     @staticmethod
     def _to_codebase_path(path: str) -> str:
-        """Map a sandbox path (usually under /workspace) to a codebase path.
-        
-        Codebase stores paths relative to repo root (e.g. "main.py"), while commands
-        inside the sandbox typically refer to "/workspace/..." paths.
-        """
+        """Map a sandbox path (usually under /workspace) to a codebase path."""
         if path == "/workspace":
             return ""
         if path.startswith("/workspace/"):
             return path[len("/workspace/") :]
-        # Also normalize leading "/" to avoid accidentally creating absolute-looking paths in codebase
         if path.startswith("/"):
             return path[1:]
         return path
     
-    def read_file(self, path: str) -> str:
+    async def read_file(self, path: str) -> str:
         """Read a file from the sandbox.
         
         Args:
@@ -598,12 +593,12 @@ class Sandbox:
             The file content as a string.
             
         Example:
-            >>> content = sandbox.read_file("/workspace/output.txt")
+            >>> content = await sandbox.read_file("/workspace/output.txt")
         """
-        content = self._client.download_file(self.codebase_id, self._to_codebase_path(path))
+        content = await self._client.download_file(self.codebase_id, self._to_codebase_path(path))
         return content.decode("utf-8")
     
-    def read_file_bytes(self, path: str) -> bytes:
+    async def read_file_bytes(self, path: str) -> bytes:
         """Read a file as bytes from the sandbox.
         
         Args:
@@ -612,9 +607,9 @@ class Sandbox:
         Returns:
             The file content as bytes.
         """
-        return self._client.download_file(self.codebase_id, self._to_codebase_path(path))
+        return await self._client.download_file(self.codebase_id, self._to_codebase_path(path))
     
-    def write_file(self, path: str, content: Union[str, bytes]) -> None:
+    async def write_file(self, path: str, content: Union[str, bytes]) -> None:
         """Write a file to the sandbox.
         
         Args:
@@ -622,13 +617,13 @@ class Sandbox:
             content: The file content (string or bytes).
             
         Example:
-            >>> sandbox.write_file("/workspace/config.json", '{"debug": true}')
+            >>> await sandbox.write_file("/workspace/config.json", '{"debug": true}')
         """
         if isinstance(content, str):
             content = content.encode("utf-8")
-        self._client.upload_file(self.codebase_id, self._to_codebase_path(path), content)
+        await self._client.upload_file(self.codebase_id, self._to_codebase_path(path), content)
     
-    def list_files(self, path: str = "", recursive: bool = False) -> List[str]:
+    async def list_files(self, path: str = "", recursive: bool = False) -> List[str]:
         """List files in the sandbox.
         
         Args:
@@ -638,7 +633,7 @@ class Sandbox:
         Returns:
             List of file paths.
         """
-        files = self._client.list_files(
+        files = await self._client.list_files(
             codebase_id=self.codebase_id,
             path=self._to_codebase_path(path),
             recursive=recursive,
@@ -649,16 +644,16 @@ class Sandbox:
     # Context Manager
     # ============================================
     
-    def __enter__(self) -> "Sandbox":
-        """Enter context manager."""
+    async def __aenter__(self) -> "AsyncSandbox":
+        """Enter async context manager."""
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Exit context manager, destroying the sandbox."""
-        self.destroy()
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit async context manager, destroying the sandbox."""
+        await self.destroy()
     
     def __repr__(self) -> str:
         return (
-            f"Sandbox(id={self.id!r}, status={self.status.value!r}, "
+            f"AsyncSandbox(id={self.id!r}, status={self.status.value!r}, "
             f"runtime={self.runtime.value!r})"
         )

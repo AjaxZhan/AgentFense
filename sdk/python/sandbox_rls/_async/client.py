@@ -1,16 +1,20 @@
-"""Sandbox SDK Client for interacting with the Sandbox service."""
+"""Async Sandbox SDK Client for interacting with the Sandbox service.
+
+This module provides an asynchronous version of SandboxClient using grpc.aio.
+"""
 
 from datetime import timedelta
 from functools import wraps
-from typing import Callable, Dict, Iterator, List, Optional, TypeVar, Union
+from typing import AsyncIterator, Callable, Dict, List, Optional, TypeVar, Union
 
 import grpc
+import grpc.aio
 from google.protobuf.duration_pb2 import Duration
 
-from ._gen import sandbox_pb2, sandbox_pb2_grpc
-from ._gen import codebase_pb2, codebase_pb2_grpc
-from ._gen import common_pb2
-from .types import (
+from .._gen import sandbox_pb2, sandbox_pb2_grpc
+from .._gen import codebase_pb2, codebase_pb2_grpc
+from .._gen import common_pb2
+from ..types import (
     Codebase,
     ExecResult,
     FileInfo,
@@ -25,7 +29,7 @@ from .types import (
     SessionStatus,
     UploadResult,
 )
-from .exceptions import (
+from ..exceptions import (
     SandboxError,
     SandboxNotFoundError,
     CodebaseNotFoundError,
@@ -35,7 +39,7 @@ from .exceptions import (
     SessionNotFoundError,
     from_grpc_error,
 )
-from ._shared import (
+from .._shared import (
     permission_to_proto,
     pattern_type_to_proto,
     runtime_type_to_proto,
@@ -51,41 +55,41 @@ from ._shared import (
 T = TypeVar("T")
 
 
-def _handle_grpc_errors(context: str = "") -> Callable:
-    """Decorator to convert gRPC errors to SDK exceptions.
+def _handle_grpc_errors_async(context: str = "") -> Callable:
+    """Decorator to convert gRPC errors to SDK exceptions (async version).
     
     Args:
         context: Description of the operation for error messages.
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
-        def wrapper(*args, **kwargs) -> T:
+        async def wrapper(*args, **kwargs) -> T:
             try:
-                return func(*args, **kwargs)
-            except grpc.RpcError as e:
+                return await func(*args, **kwargs)
+            except grpc.aio.AioRpcError as e:
                 raise from_grpc_error(e, context)
         return wrapper
     return decorator
 
 
-class SessionWrapper:
-    """Wrapper for a shell session with context manager support.
+class AsyncSessionWrapper:
+    """Async wrapper for a shell session with context manager support.
     
     A session maintains a persistent shell process that preserves
     working directory, environment variables, and background processes.
     
     Example:
-        >>> with sandbox.session() as session:
-        ...     session.exec("cd /workspace")
-        ...     session.exec("npm install")
-        ...     result = session.exec("npm test")
+        >>> async with sandbox.session() as session:
+        ...     await session.exec("cd /workspace")
+        ...     await session.exec("npm install")
+        ...     result = await session.exec("npm test")
     """
     
-    def __init__(self, client: "SandboxClient", session: Session):
-        """Initialize the SessionWrapper.
+    def __init__(self, client: "AsyncSandboxClient", session: Session):
+        """Initialize the AsyncSessionWrapper.
         
         Args:
-            client: The SandboxClient instance.
+            client: The AsyncSandboxClient instance.
             session: The Session object.
         """
         self._client = client
@@ -111,7 +115,7 @@ class SessionWrapper:
         """Get the shell binary path."""
         return self._session.shell
     
-    def exec(
+    async def exec(
         self,
         command: str,
         timeout: Optional[timedelta] = None,
@@ -128,69 +132,69 @@ class SessionWrapper:
         Returns:
             The ExecResult with stdout, stderr, and exit code.
         """
-        return self._client.session_exec(self.id, command, timeout)
+        return await self._client.session_exec(self.id, command, timeout)
     
-    def close(self):
+    async def close(self):
         """Close the session and clean up all child processes."""
-        self._client.destroy_session(self.id)
+        await self._client.destroy_session(self.id)
     
-    def __enter__(self) -> "SessionWrapper":
-        """Enter context manager."""
+    async def __aenter__(self) -> "AsyncSessionWrapper":
+        """Enter async context manager."""
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit context manager, closing the session."""
-        self.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Exit async context manager, closing the session."""
+        await self.close()
 
 
-class SandboxClient:
-    """Client for interacting with the Sandbox service.
+class AsyncSandboxClient:
+    """Async client for interacting with the Sandbox service.
     
     Example:
-        >>> client = SandboxClient(endpoint="localhost:9000")
-        >>> sandbox = client.create_sandbox(
+        >>> client = AsyncSandboxClient(endpoint="localhost:9000")
+        >>> sandbox = await client.create_sandbox(
         ...     codebase_id="cb_123",
         ...     permissions=[
         ...         {"pattern": "/docs/**", "permission": "write"},
         ...         {"pattern": "**/*.py", "permission": "read"},
         ...     ]
         ... )
-        >>> client.start_sandbox(sandbox.id)
-        >>> result = client.exec(sandbox.id, command="ls -la /workspace")
+        >>> await client.start_sandbox(sandbox.id)
+        >>> result = await client.exec(sandbox.id, command="ls -la /workspace")
         >>> print(result.stdout)
     """
 
     def __init__(self, endpoint: str = "localhost:9000", secure: bool = False):
-        """Initialize the SandboxClient.
+        """Initialize the AsyncSandboxClient.
         
         Args:
             endpoint: The gRPC server endpoint (host:port).
             secure: Whether to use TLS for the connection.
         """
         if secure:
-            self._channel = grpc.secure_channel(endpoint, grpc.ssl_channel_credentials())
+            self._channel = grpc.aio.secure_channel(endpoint, grpc.ssl_channel_credentials())
         else:
-            self._channel = grpc.insecure_channel(endpoint)
+            self._channel = grpc.aio.insecure_channel(endpoint)
         
         self._sandbox_stub = sandbox_pb2_grpc.SandboxServiceStub(self._channel)
         self._codebase_stub = codebase_pb2_grpc.CodebaseServiceStub(self._channel)
 
-    def close(self):
+    async def close(self):
         """Close the gRPC channel."""
-        self._channel.close()
+        await self._channel.close()
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
 
     # ============================================
     # Sandbox Operations
     # ============================================
 
-    @_handle_grpc_errors("create sandbox")
-    def create_sandbox(
+    @_handle_grpc_errors_async("create sandbox")
+    async def create_sandbox(
         self,
         codebase_id: str,
         permissions: Optional[List[Union[PermissionRule, Dict]]] = None,
@@ -213,19 +217,6 @@ class SandboxClient:
             
         Returns:
             The created Sandbox object.
-            
-        Raises:
-            SandboxError: If sandbox creation fails.
-            InvalidConfigurationError: If configuration is invalid.
-            
-        Example:
-            >>> sandbox = client.create_sandbox(
-            ...     codebase_id="cb_123",
-            ...     permissions=[{"pattern": "**/*", "permission": "read"}],
-            ...     runtime=RuntimeType.DOCKER,
-            ...     image="python:3.11-slim",
-            ...     resources=ResourceLimits(memory_bytes=512*1024*1024),
-            ... )
         """
         # Convert permissions to protobuf
         pb_permissions = []
@@ -268,11 +259,11 @@ class SandboxClient:
             if pb_resources:
                 request.resources.CopyFrom(pb_resources)
 
-        response = self._sandbox_stub.CreateSandbox(request)
+        response = await self._sandbox_stub.CreateSandbox(request)
         return proto_to_sandbox(response)
 
-    @_handle_grpc_errors("get sandbox")
-    def get_sandbox(self, sandbox_id: str) -> Sandbox:
+    @_handle_grpc_errors_async("get sandbox")
+    async def get_sandbox(self, sandbox_id: str) -> Sandbox:
         """Get information about a sandbox.
         
         Args:
@@ -280,16 +271,13 @@ class SandboxClient:
             
         Returns:
             The Sandbox object.
-            
-        Raises:
-            SandboxNotFoundError: If the sandbox doesn't exist.
         """
         request = sandbox_pb2.GetSandboxRequest(sandbox_id=sandbox_id)
-        response = self._sandbox_stub.GetSandbox(request)
+        response = await self._sandbox_stub.GetSandbox(request)
         return proto_to_sandbox(response)
 
-    @_handle_grpc_errors("list sandboxes")
-    def list_sandboxes(self, codebase_id: Optional[str] = None) -> List[Sandbox]:
+    @_handle_grpc_errors_async("list sandboxes")
+    async def list_sandboxes(self, codebase_id: Optional[str] = None) -> List[Sandbox]:
         """List all sandboxes.
         
         Args:
@@ -299,11 +287,11 @@ class SandboxClient:
             List of Sandbox objects.
         """
         request = sandbox_pb2.ListSandboxesRequest(codebase_id=codebase_id or "")
-        response = self._sandbox_stub.ListSandboxes(request)
+        response = await self._sandbox_stub.ListSandboxes(request)
         return [proto_to_sandbox(sb) for sb in response.sandboxes]
 
-    @_handle_grpc_errors("start sandbox")
-    def start_sandbox(self, sandbox_id: str) -> Sandbox:
+    @_handle_grpc_errors_async("start sandbox")
+    async def start_sandbox(self, sandbox_id: str) -> Sandbox:
         """Start a pending sandbox.
         
         Args:
@@ -311,16 +299,13 @@ class SandboxClient:
             
         Returns:
             The updated Sandbox object.
-            
-        Raises:
-            SandboxNotFoundError: If the sandbox doesn't exist.
         """
         request = sandbox_pb2.StartSandboxRequest(sandbox_id=sandbox_id)
-        response = self._sandbox_stub.StartSandbox(request)
+        response = await self._sandbox_stub.StartSandbox(request)
         return proto_to_sandbox(response)
 
-    @_handle_grpc_errors("stop sandbox")
-    def stop_sandbox(self, sandbox_id: str) -> Sandbox:
+    @_handle_grpc_errors_async("stop sandbox")
+    async def stop_sandbox(self, sandbox_id: str) -> Sandbox:
         """Stop a running sandbox.
         
         Args:
@@ -328,29 +313,23 @@ class SandboxClient:
             
         Returns:
             The updated Sandbox object.
-            
-        Raises:
-            SandboxNotFoundError: If the sandbox doesn't exist.
         """
         request = sandbox_pb2.StopSandboxRequest(sandbox_id=sandbox_id)
-        response = self._sandbox_stub.StopSandbox(request)
+        response = await self._sandbox_stub.StopSandbox(request)
         return proto_to_sandbox(response)
 
-    @_handle_grpc_errors("destroy sandbox")
-    def destroy_sandbox(self, sandbox_id: str) -> None:
+    @_handle_grpc_errors_async("destroy sandbox")
+    async def destroy_sandbox(self, sandbox_id: str) -> None:
         """Destroy a sandbox and release resources.
         
         Args:
             sandbox_id: The ID of the sandbox to destroy.
-            
-        Raises:
-            SandboxNotFoundError: If the sandbox doesn't exist.
         """
         request = sandbox_pb2.DestroySandboxRequest(sandbox_id=sandbox_id)
-        self._sandbox_stub.DestroySandbox(request)
+        await self._sandbox_stub.DestroySandbox(request)
 
-    @_handle_grpc_errors("execute command")
-    def exec(
+    @_handle_grpc_errors_async("execute command")
+    async def exec(
         self,
         sandbox_id: str,
         command: str,
@@ -371,11 +350,6 @@ class SandboxClient:
             
         Returns:
             The ExecResult with stdout, stderr, and exit code.
-            
-        Raises:
-            SandboxNotFoundError: If the sandbox doesn't exist.
-            SandboxNotRunningError: If the sandbox isn't running.
-            CommandTimeoutError: If the command times out.
         """
         request = sandbox_pb2.ExecRequest(
             sandbox_id=sandbox_id,
@@ -391,7 +365,7 @@ class SandboxClient:
                 nanos=int((timeout.total_seconds() % 1) * 1e9),
             ))
 
-        response = self._sandbox_stub.Exec(request)
+        response = await self._sandbox_stub.Exec(request)
         return ExecResult(
             stdout=response.stdout,
             stderr=response.stderr,
@@ -400,8 +374,7 @@ class SandboxClient:
             command=command,
         )
 
-    @_handle_grpc_errors("execute command (stream)")
-    def exec_stream(
+    async def exec_stream(
         self,
         sandbox_id: str,
         command: str,
@@ -409,7 +382,7 @@ class SandboxClient:
         env: Optional[Dict[str, str]] = None,
         workdir: Optional[str] = None,
         timeout: Optional[timedelta] = None,
-    ) -> Iterator[bytes]:
+    ) -> AsyncIterator[bytes]:
         """Execute a command and stream the output.
         
         Args:
@@ -422,10 +395,6 @@ class SandboxClient:
             
         Yields:
             Chunks of output data.
-            
-        Raises:
-            SandboxNotFoundError: If the sandbox doesn't exist.
-            SandboxNotRunningError: If the sandbox isn't running.
         """
         request = sandbox_pb2.ExecRequest(
             sandbox_id=sandbox_id,
@@ -441,69 +410,59 @@ class SandboxClient:
                 nanos=int((timeout.total_seconds() % 1) * 1e9),
             ))
 
-        for response in self._sandbox_stub.ExecStream(request):
-            yield response.data
+        try:
+            async for response in self._sandbox_stub.ExecStream(request):
+                yield response.data
+        except grpc.aio.AioRpcError as e:
+            raise from_grpc_error(e, "execute command (stream)")
 
     # ============================================
     # Session Operations
     # ============================================
 
-    @_handle_grpc_errors("create session")
-    def create_session(
+    @_handle_grpc_errors_async("create session")
+    async def create_session(
         self,
         sandbox_id: str,
         shell: str = "/bin/sh",
         env: Optional[Dict[str, str]] = None,
-    ) -> SessionWrapper:
+    ) -> AsyncSessionWrapper:
         """Create a new shell session within a sandbox.
-        
-        A session maintains a persistent shell process that preserves
-        working directory, environment variables, and background processes.
         
         Args:
             sandbox_id: The ID of the sandbox.
-            shell: The shell binary to use (default: /bin/bash).
+            shell: The shell binary to use (default: /bin/sh).
             env: Optional initial environment variables.
             
         Returns:
-            A SessionWrapper object for the new session.
-            
-        Raises:
-            SandboxNotFoundError: If the sandbox doesn't exist.
-            SandboxNotRunningError: If the sandbox isn't running.
-            
-        Example:
-            >>> session = client.create_session(sandbox_id)
-            >>> session.exec("cd /workspace")
-            >>> session.exec("npm install")
-            >>> session.close()
+            An AsyncSessionWrapper object for the new session.
         """
         request = sandbox_pb2.CreateSessionRequest(
             sandbox_id=sandbox_id,
             shell=shell,
             env=env or {},
         )
-        response = self._sandbox_stub.CreateSession(request)
+        response = await self._sandbox_stub.CreateSession(request)
         session = proto_to_session(response)
-        return SessionWrapper(self, session)
+        return AsyncSessionWrapper(self, session)
 
-    def session(
+    async def session(
         self,
         sandbox_id: str,
         shell: str = "/bin/sh",
         env: Optional[Dict[str, str]] = None,
-    ) -> SessionWrapper:
+    ) -> AsyncSessionWrapper:
         """Create a session with context manager support (alias for create_session).
         
         Example:
-            >>> with client.session(sandbox_id) as session:
-            ...     session.exec("cd /workspace")
-            ...     session.exec("npm install")
+            >>> async with client.session(sandbox_id) as session:
+            ...     await session.exec("cd /workspace")
+            ...     await session.exec("npm install")
         """
-        return self.create_session(sandbox_id, shell, env)
+        return await self.create_session(sandbox_id, shell, env)
 
-    @_handle_grpc_errors("get session")
-    def get_session(self, session_id: str) -> Session:
+    @_handle_grpc_errors_async("get session")
+    async def get_session(self, session_id: str) -> Session:
         """Get information about a session.
         
         Args:
@@ -511,16 +470,13 @@ class SandboxClient:
             
         Returns:
             The Session object.
-            
-        Raises:
-            SessionNotFoundError: If the session doesn't exist.
         """
         request = sandbox_pb2.GetSessionRequest(session_id=session_id)
-        response = self._sandbox_stub.GetSession(request)
+        response = await self._sandbox_stub.GetSession(request)
         return proto_to_session(response)
 
-    @_handle_grpc_errors("list sessions")
-    def list_sessions(self, sandbox_id: str) -> List[Session]:
+    @_handle_grpc_errors_async("list sessions")
+    async def list_sessions(self, sandbox_id: str) -> List[Session]:
         """List all sessions for a sandbox.
         
         Args:
@@ -530,33 +486,27 @@ class SandboxClient:
             List of Session objects.
         """
         request = sandbox_pb2.ListSessionsRequest(sandbox_id=sandbox_id)
-        response = self._sandbox_stub.ListSessions(request)
+        response = await self._sandbox_stub.ListSessions(request)
         return [proto_to_session(s) for s in response.sessions]
 
-    @_handle_grpc_errors("destroy session")
-    def destroy_session(self, session_id: str) -> None:
+    @_handle_grpc_errors_async("destroy session")
+    async def destroy_session(self, session_id: str) -> None:
         """Destroy a session and clean up all child processes.
         
         Args:
             session_id: The ID of the session to destroy.
-            
-        Raises:
-            SessionNotFoundError: If the session doesn't exist.
         """
         request = sandbox_pb2.DestroySessionRequest(session_id=session_id)
-        self._sandbox_stub.DestroySession(request)
+        await self._sandbox_stub.DestroySession(request)
 
-    @_handle_grpc_errors("session exec")
-    def session_exec(
+    @_handle_grpc_errors_async("session exec")
+    async def session_exec(
         self,
         session_id: str,
         command: str,
         timeout: Optional[timedelta] = None,
     ) -> ExecResult:
         """Execute a command within a session (stateful).
-        
-        The command runs in the context of the persistent shell,
-        so working directory and environment changes persist.
         
         Args:
             session_id: The ID of the session.
@@ -565,11 +515,6 @@ class SandboxClient:
             
         Returns:
             The ExecResult with stdout, stderr, and exit code.
-            
-        Raises:
-            SessionNotFoundError: If the session doesn't exist.
-            SessionClosedError: If the session is closed.
-            CommandTimeoutError: If the command times out.
         """
         request = sandbox_pb2.SessionExecRequest(
             session_id=session_id,
@@ -582,7 +527,7 @@ class SandboxClient:
                 nanos=int((timeout.total_seconds() % 1) * 1e9),
             ))
 
-        response = self._sandbox_stub.SessionExec(request)
+        response = await self._sandbox_stub.SessionExec(request)
         return ExecResult(
             stdout=response.stdout,
             stderr=response.stderr,
@@ -595,8 +540,8 @@ class SandboxClient:
     # Codebase Operations
     # ============================================
 
-    @_handle_grpc_errors("create codebase")
-    def create_codebase(self, name: str, owner_id: str) -> Codebase:
+    @_handle_grpc_errors_async("create codebase")
+    async def create_codebase(self, name: str, owner_id: str) -> Codebase:
         """Create a new codebase.
         
         Args:
@@ -607,11 +552,11 @@ class SandboxClient:
             The created Codebase object.
         """
         request = codebase_pb2.CreateCodebaseRequest(name=name, owner_id=owner_id)
-        response = self._codebase_stub.CreateCodebase(request)
+        response = await self._codebase_stub.CreateCodebase(request)
         return proto_to_codebase(response)
 
-    @_handle_grpc_errors("get codebase")
-    def get_codebase(self, codebase_id: str) -> Codebase:
+    @_handle_grpc_errors_async("get codebase")
+    async def get_codebase(self, codebase_id: str) -> Codebase:
         """Get information about a codebase.
         
         Args:
@@ -619,16 +564,13 @@ class SandboxClient:
             
         Returns:
             The Codebase object.
-            
-        Raises:
-            CodebaseNotFoundError: If the codebase doesn't exist.
         """
         request = codebase_pb2.GetCodebaseRequest(codebase_id=codebase_id)
-        response = self._codebase_stub.GetCodebase(request)
+        response = await self._codebase_stub.GetCodebase(request)
         return proto_to_codebase(response)
 
-    @_handle_grpc_errors("list codebases")
-    def list_codebases(self, owner_id: Optional[str] = None) -> List[Codebase]:
+    @_handle_grpc_errors_async("list codebases")
+    async def list_codebases(self, owner_id: Optional[str] = None) -> List[Codebase]:
         """List all codebases.
         
         Args:
@@ -638,24 +580,21 @@ class SandboxClient:
             List of Codebase objects.
         """
         request = codebase_pb2.ListCodebasesRequest(owner_id=owner_id or "")
-        response = self._codebase_stub.ListCodebases(request)
+        response = await self._codebase_stub.ListCodebases(request)
         return [proto_to_codebase(cb) for cb in response.codebases]
 
-    @_handle_grpc_errors("delete codebase")
-    def delete_codebase(self, codebase_id: str) -> None:
+    @_handle_grpc_errors_async("delete codebase")
+    async def delete_codebase(self, codebase_id: str) -> None:
         """Delete a codebase.
         
         Args:
             codebase_id: The ID of the codebase to delete.
-            
-        Raises:
-            CodebaseNotFoundError: If the codebase doesn't exist.
         """
         request = codebase_pb2.DeleteCodebaseRequest(codebase_id=codebase_id)
-        self._codebase_stub.DeleteCodebase(request)
+        await self._codebase_stub.DeleteCodebase(request)
 
-    @_handle_grpc_errors("upload file")
-    def upload_file(
+    @_handle_grpc_errors_async("upload file")
+    async def upload_file(
         self,
         codebase_id: str,
         file_path: str,
@@ -672,12 +611,8 @@ class SandboxClient:
             
         Returns:
             The UploadResult with file info.
-            
-        Raises:
-            CodebaseNotFoundError: If the codebase doesn't exist.
-            UploadError: If the upload fails.
         """
-        def generate_chunks():
+        async def generate_chunks():
             # First send metadata
             yield codebase_pb2.UploadChunk(
                 metadata=codebase_pb2.UploadChunk.Metadata(
@@ -690,7 +625,7 @@ class SandboxClient:
             for i in range(0, len(content), chunk_size):
                 yield codebase_pb2.UploadChunk(data=content[i:i + chunk_size])
 
-        response = self._codebase_stub.UploadFiles(generate_chunks())
+        response = await self._codebase_stub.UploadFiles(generate_chunks())
         return UploadResult(
             codebase_id=response.codebase_id,
             file_path=response.file_path,
@@ -698,8 +633,8 @@ class SandboxClient:
             checksum=response.checksum,
         )
 
-    @_handle_grpc_errors("download file")
-    def download_file(self, codebase_id: str, file_path: str) -> bytes:
+    @_handle_grpc_errors_async("download file")
+    async def download_file(self, codebase_id: str, file_path: str) -> bytes:
         """Download a file from a codebase.
         
         Args:
@@ -708,22 +643,18 @@ class SandboxClient:
             
         Returns:
             The file content as bytes.
-            
-        Raises:
-            CodebaseNotFoundError: If the codebase doesn't exist.
-            FileNotFoundError: If the file doesn't exist.
         """
         request = codebase_pb2.DownloadFileRequest(
             codebase_id=codebase_id,
             file_path=file_path,
         )
         chunks = []
-        for response in self._codebase_stub.DownloadFile(request):
+        async for response in self._codebase_stub.DownloadFile(request):
             chunks.append(response.data)
         return b"".join(chunks)
 
-    @_handle_grpc_errors("list files")
-    def list_files(
+    @_handle_grpc_errors_async("list files")
+    async def list_files(
         self,
         codebase_id: str,
         path: str = "",
@@ -738,14 +669,11 @@ class SandboxClient:
             
         Returns:
             List of FileInfo objects.
-            
-        Raises:
-            CodebaseNotFoundError: If the codebase doesn't exist.
         """
         request = codebase_pb2.ListFilesRequest(
             codebase_id=codebase_id,
             path=path,
             recursive=recursive,
         )
-        response = self._codebase_stub.ListFiles(request)
+        response = await self._codebase_stub.ListFiles(request)
         return [proto_to_file_info(f) for f in response.files]

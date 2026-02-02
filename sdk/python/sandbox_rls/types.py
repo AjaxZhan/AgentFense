@@ -155,11 +155,70 @@ class Codebase:
 
 @dataclass
 class ExecResult:
-    """Result of command execution."""
+    """Result of command execution.
+    
+    Attributes:
+        stdout: Standard output from the command.
+        stderr: Standard error from the command.
+        exit_code: Exit code of the command (0 typically means success).
+        duration: How long the command took to execute.
+        command: The command that was executed (for debugging).
+        
+    Example:
+        >>> result = sandbox.run("python --version")
+        >>> if result.success:
+        ...     print(result.stdout)
+        >>> else:
+        ...     print(f"Failed: {result.output}")
+        
+        >>> # Chain with raise_on_error for fail-fast behavior
+        >>> result = sandbox.run("make build").raise_on_error()
+    """
     stdout: str
     stderr: str
     exit_code: int
     duration: Optional[timedelta] = None
+    command: Optional[str] = None
+    
+    @property
+    def success(self) -> bool:
+        """True if the command exited with code 0."""
+        return self.exit_code == 0
+    
+    @property
+    def output(self) -> str:
+        """Combined stdout and stderr output.
+        
+        Useful when you want all output regardless of stream.
+        """
+        parts = []
+        if self.stdout:
+            parts.append(self.stdout)
+        if self.stderr:
+            parts.append(self.stderr)
+        return "\n".join(parts) if parts else ""
+    
+    def raise_on_error(self) -> "ExecResult":
+        """Raise CommandExecutionError if the command failed.
+        
+        Returns self for method chaining, allowing patterns like:
+            result = sandbox.run("make").raise_on_error()
+            
+        Raises:
+            CommandExecutionError: If exit_code is non-zero.
+            
+        Returns:
+            Self, for method chaining.
+        """
+        if not self.success:
+            from .exceptions import CommandExecutionError
+            raise CommandExecutionError(
+                command=self.command or "<unknown>",
+                exit_code=self.exit_code,
+                stdout=self.stdout,
+                stderr=self.stderr,
+            )
+        return self
 
 
 @dataclass

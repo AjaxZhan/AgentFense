@@ -1,7 +1,8 @@
 """Sandbox RLS - Python client for the Sandbox RLS service.
 
 This SDK provides both low-level and high-level APIs for interacting
-with the Sandbox service.
+with the Sandbox service, with support for both synchronous and asynchronous
+operations.
 
 High-Level API (Recommended):
     Use the Sandbox class for the simplest experience:
@@ -22,6 +23,15 @@ High-Level API (Recommended):
     ...     resources=ResourceLimits(memory_bytes=512*1024*1024),
     ... ) as sandbox:
     ...     result = sandbox.run("pytest")
+
+Async API:
+    Use AsyncSandbox for async/await operations:
+    
+    >>> from sandbox_rls import AsyncSandbox
+    >>> 
+    >>> async with await AsyncSandbox.from_local("./my-project") as sandbox:
+    ...     result = await sandbox.run("python main.py")
+    ...     print(result.stdout)
 
 Low-Level API:
     Use SandboxClient for fine-grained control:
@@ -59,6 +69,7 @@ Low-Level API:
 
 from .client import SandboxClient, SessionWrapper
 from .sandbox import Sandbox
+from ._async import AsyncSandbox, AsyncSandboxClient, AsyncSessionWrapper
 from .types import (
     Codebase,
     ExecResult,
@@ -116,11 +127,16 @@ from .utils import (
 
 __version__ = "0.2.0"
 __all__ = [
-    # High-level API
+    # High-level API (sync)
     "Sandbox",
-    # Low-level client
+    # High-level API (async)
+    "AsyncSandbox",
+    # Low-level client (sync)
     "SandboxClient",
     "SessionWrapper",
+    # Low-level client (async)
+    "AsyncSandboxClient",
+    "AsyncSessionWrapper",
     # Types
     "Codebase",
     "ExecResult",

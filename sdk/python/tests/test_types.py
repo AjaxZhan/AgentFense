@@ -119,6 +119,71 @@ class TestExecResult:
         assert result.stderr == ""
         assert result.exit_code == 0
         assert result.duration is None
+        assert result.command is None
+
+    def test_exec_result_with_command(self):
+        result = ExecResult(
+            stdout="output",
+            stderr="error",
+            exit_code=1,
+            command="python main.py",
+        )
+        assert result.command == "python main.py"
+
+    def test_success_property_true(self):
+        result = ExecResult(stdout="ok", stderr="", exit_code=0)
+        assert result.success is True
+
+    def test_success_property_false(self):
+        result = ExecResult(stdout="", stderr="error", exit_code=1)
+        assert result.success is False
+
+    def test_output_property_stdout_only(self):
+        result = ExecResult(stdout="hello", stderr="", exit_code=0)
+        assert result.output == "hello"
+
+    def test_output_property_stderr_only(self):
+        result = ExecResult(stdout="", stderr="error", exit_code=1)
+        assert result.output == "error"
+
+    def test_output_property_both(self):
+        result = ExecResult(stdout="out", stderr="err", exit_code=0)
+        assert result.output == "out\nerr"
+
+    def test_output_property_empty(self):
+        result = ExecResult(stdout="", stderr="", exit_code=0)
+        assert result.output == ""
+
+    def test_raise_on_error_success(self):
+        result = ExecResult(stdout="ok", stderr="", exit_code=0, command="echo ok")
+        # Should return self and not raise
+        returned = result.raise_on_error()
+        assert returned is result
+
+    def test_raise_on_error_failure(self):
+        from sandbox_rls.exceptions import CommandExecutionError
+        
+        result = ExecResult(
+            stdout="",
+            stderr="command not found",
+            exit_code=127,
+            command="nonexistent_cmd",
+        )
+        with pytest.raises(CommandExecutionError) as exc_info:
+            result.raise_on_error()
+        
+        assert exc_info.value.exit_code == 127
+        assert exc_info.value.command == "nonexistent_cmd"
+        assert "command not found" in exc_info.value.stderr
+
+    def test_raise_on_error_without_command(self):
+        from sandbox_rls.exceptions import CommandExecutionError
+        
+        result = ExecResult(stdout="", stderr="error", exit_code=1)
+        with pytest.raises(CommandExecutionError) as exc_info:
+            result.raise_on_error()
+        
+        assert exc_info.value.command == "<unknown>"
 
 
 class TestFileInfo:
