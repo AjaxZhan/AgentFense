@@ -19,3 +19,7 @@ test_files/
 
 pyrightconfig.json
 .vscode/
+
+# Example 示例项目（独立开发环境）
+example/ticket-agent/.venv/
+example/ticket-agent/__pycache__/
