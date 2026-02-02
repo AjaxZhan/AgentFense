@@ -392,6 +392,9 @@ func (s *SandboxServiceServer) Exec(ctx context.Context, req *pb.ExecRequest) (*
 		if errors.Is(err, types.ErrNotRunning) {
 			return nil, status.Error(codes.FailedPrecondition, "sandbox is not running")
 		}
+		if errors.Is(err, types.ErrTimeout) {
+			return nil, status.Error(codes.DeadlineExceeded, "command timed out")
+		}
 		return nil, status.Errorf(codes.Internal, "failed to execute command: %v", err)
 	}
 
@@ -450,6 +453,9 @@ func (s *SandboxServiceServer) ExecStream(req *pb.ExecRequest, stream grpc.Serve
 		}
 		if errors.Is(err, types.ErrNotRunning) {
 			return status.Error(codes.FailedPrecondition, "sandbox is not running")
+		}
+		if errors.Is(err, types.ErrTimeout) {
+			return status.Error(codes.DeadlineExceeded, "command timed out")
 		}
 		return status.Errorf(codes.Internal, "failed to execute command: %v", err)
 	}

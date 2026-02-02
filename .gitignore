@@ -7,3 +7,12 @@ sandbox_sdk.egg-info/
 __pycache__/
 *.pyc
 *.pyo
+
+# 测试脚本和临时文件
+.sandbox-data/
+test_workspace/
+test_permissions/
+test_sessions/
+test_presets/
+test_errors/
+test_files/

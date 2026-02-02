@@ -527,7 +527,7 @@ class Sandbox:
     
     def session(
         self,
-        shell: str = "/bin/bash",
+        shell: str = "/bin/sh",
         env: Optional[Dict[str, str]] = None,
     ) -> SessionWrapper:
         """Create a new shell session.
@@ -558,6 +558,22 @@ class Sandbox:
     # File Operations
     # ============================================
     
+    @staticmethod
+    def _to_codebase_path(path: str) -> str:
+        """Map a sandbox path (usually under /workspace) to a codebase path.
+        
+        Codebase stores paths relative to repo root (e.g. "main.py"), while commands
+        inside the sandbox typically refer to "/workspace/..." paths.
+        """
+        if path == "/workspace":
+            return ""
+        if path.startswith("/workspace/"):
+            return path[len("/workspace/") :]
+        # Also normalize leading "/" to avoid accidentally creating absolute-looking paths in codebase
+        if path.startswith("/"):
+            return path[1:]
+        return path
+    
     def read_file(self, path: str) -> str:
         """Read a file from the sandbox.
         
@@ -570,7 +586,7 @@ class Sandbox:
         Example:
             >>> content = sandbox.read_file("/workspace/output.txt")
         """
-        content = self._client.download_file(self.codebase_id, path)
+        content = self._client.download_file(self.codebase_id, self._to_codebase_path(path))
         return content.decode("utf-8")
     
     def read_file_bytes(self, path: str) -> bytes:
@@ -582,7 +598,7 @@ class Sandbox:
         Returns:
             The file content as bytes.
         """
-        return self._client.download_file(self.codebase_id, path)
+        return self._client.download_file(self.codebase_id, self._to_codebase_path(path))
     
     def write_file(self, path: str, content: Union[str, bytes]) -> None:
         """Write a file to the sandbox.
@@ -596,7 +612,7 @@ class Sandbox:
         """
         if isinstance(content, str):
             content = content.encode("utf-8")
-        self._client.upload_file(self.codebase_id, path, content)
+        self._client.upload_file(self.codebase_id, self._to_codebase_path(path), content)
     
     def list_files(self, path: str = "", recursive: bool = False) -> List[str]:
         """List files in the sandbox.
@@ -610,7 +626,7 @@ class Sandbox:
         """
         files = self._client.list_files(
             codebase_id=self.codebase_id,
-            path=path,
+            path=self._to_codebase_path(path),
             recursive=recursive,
         )
         return [f.path for f in files]

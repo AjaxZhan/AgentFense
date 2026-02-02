@@ -1,0 +1,91 @@
+# Sandbox Server Test Configuration
+# 用于本地测试的配置文件 - 使用 Docker Runtime
+#
+# 使用方法:
+#   1. 首次使用前，拉取 Docker 镜像（推荐）:
+#      ./scripts/init-docker.sh
+#   
+#   2. 启动服务器:
+#      ./bin/sandbox-server -config test-config.yaml
+#
+# 注意:
+#   - storage 路径可以使用相对路径，服务器会自动转换为绝对路径
+#   - Docker 运行时要求使用绝对路径进行绑定挂载
+
+server:
+  # gRPC server address
+  grpc_addr: ":9000"
+  # REST gateway address
+  http_addr: ":8080"
+
+storage:
+  # 本地测试目录 - 所有数据存储在项目根目录下的 .sandbox-data 中
+  # 这个目录会被添加到 .gitignore，不会被提交到 Git
+  codebase_path: "./.sandbox-data/codebases"
+  mount_path: "./.sandbox-data/mounts"
+  db_path: "./.sandbox-data/metadata.db"
+
+runtime:
+  # 使用 Docker Runtime
+  type: "docker"
+  
+  # 默认命令超时
+  default_timeout: "30s"
+  # 最大命令超时
+  max_timeout: "10m"
+  
+  # Docker 运行时配置
+  docker:
+    # Docker daemon socket (留空则使用默认: unix:///var/run/docker.sock)
+    host: ""
+    
+    # 默认容器镜像
+    #
+    # 说明：Python SDK 的示例/测试默认会执行 `python ...`，
+    # 因此测试环境默认镜像需要自带 python 命令。
+    default_image: "python:3.11-alpine"
+    
+    # 网络模式:
+    # - "none": 完全隔离，无网络访问（最安全）
+    # - "bridge": 桥接网络（可访问外网）
+    # - "host": 使用宿主机网络
+    network_mode: "none"
+    
+    # 是否允许网络访问（如果需要 pip install 等操作，设为 true）
+    enable_networking: false
+    
+    # 容器资源限制（可选）
+    # 这些限制可以在创建 sandbox 时被覆盖
+    default_memory: "512m"      # 默认内存限制
+    default_cpu_quota: 100000   # CPU 配额 (100000 = 1 CPU)
+    default_pids_limit: 100     # 最大进程数
+
+sandbox:
+  # 默认沙盒过期时间（测试用，设为 2 小时）
+  default_expiration: "2h"
+  
+  # 每个用户最大并发沙盒数
+  max_per_user: 20
+  
+  # 清理过期沙盒的间隔
+  cleanup_interval: "5m"
+  
+  # 自动清理停止的沙盒（测试环境建议开启）
+  auto_cleanup_stopped: true
+
+logging:
+  # 日志级别: debug, info, warn, error
+  # 测试环境使用 debug 以便查看详细信息
+  level: "debug"
+  
+  # 日志格式: json, text
+  # 测试环境使用 text 格式更易读
+  format: "text"
+
+# 测试环境特殊配置
+test:
+  # 启用测试模式特性
+  enabled: true
+  
+  # 测试数据自动清理（谨慎使用！）
+  auto_cleanup_on_start: false

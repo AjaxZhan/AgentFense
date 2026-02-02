@@ -18,6 +18,7 @@ import (
 	rt "github.com/ajaxzhan/sandbox-rls/internal/runtime"
 	"github.com/ajaxzhan/sandbox-rls/pkg/types"
 	"github.com/docker/docker/api/types/container"
+	imagetypes "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -363,10 +364,41 @@ func (r *DockerRuntime) createContainer(ctx context.Context, state *sandboxState
 	// Create the container
 	resp, err := r.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "sandbox-"+sandbox.ID)
 	if err != nil {
+		// If the image is missing locally, attempt to pull it and retry once.
+		// This improves first-run UX (especially on macOS/Windows) and matches common Docker workflows.
+		if strings.Contains(err.Error(), "No such image:") || strings.Contains(err.Error(), "not found") {
+			if pullErr := r.pullImageIfNeeded(sandbox.Image); pullErr == nil {
+				resp, err = r.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "sandbox-"+sandbox.ID)
+				if err == nil {
+					return resp.ID, nil
+				}
+			}
+		}
 		return "", err
 	}
 
 	return resp.ID, nil
+}
+
+// pullImageIfNeeded pulls the given image tag if it's not available locally.
+// Uses a separate background context to avoid inheriting short RPC deadlines.
+func (r *DockerRuntime) pullImageIfNeeded(image string) error {
+	if image == "" {
+		return fmt.Errorf("image is empty")
+	}
+
+	pullCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	reader, err := r.client.ImagePull(pullCtx, image, imagetypes.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	// Drain pull output so the pull actually completes.
+	_, _ = io.Copy(io.Discard, reader)
+	return nil
 }
 
 // Stop stops a running sandbox without destroying it.
@@ -569,6 +601,12 @@ func (r *DockerRuntime) Exec(ctx context.Context, sandboxID string, req *types.E
 	}
 
 	duration := time.Since(start)
+
+	// If we already hit deadline, treat as timeout rather than trying to inspect exec.
+	// Otherwise ContainerExecInspect will return context deadline exceeded and mask the real cause.
+	if ctx.Err() == context.DeadlineExceeded {
+		return nil, types.ErrTimeout
+	}
 
 	// Get exit code
 	inspectResp, err := r.client.ContainerExecInspect(ctx, execResp.ID)

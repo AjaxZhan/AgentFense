@@ -64,7 +64,7 @@ func (r *DockerRuntime) CreateSession(ctx context.Context, sandboxID string, con
 	}
 
 	// Default shell
-	shell := "/bin/bash"
+	shell := "/bin/sh"
 	if config != nil && config.Shell != "" {
 		shell = config.Shell
 	}
@@ -83,12 +83,17 @@ func (r *DockerRuntime) CreateSession(ctx context.Context, sandboxID string, con
 	sessionCtx, cancel := context.WithCancel(context.Background())
 
 	// Build exec configuration for a persistent shell
+	// IMPORTANT: alpine images often don't have bash, and /bin/sh doesn't support bash-only flags.
+	args := []string{"-i"}
+	if strings.Contains(shell, "bash") {
+		args = []string{"--norc", "--noprofile", "-i"}
+	}
 	execConfig := container.ExecOptions{
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          true,
-		Cmd:          []string{shell, "--norc", "--noprofile", "-i"},
+		Cmd:          append([]string{shell}, args...),
 	}
 
 	// Set initial environment variables

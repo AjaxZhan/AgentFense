@@ -55,7 +55,7 @@ func (r *BwrapRuntime) CreateSession(ctx context.Context, sandboxID string, conf
 	}
 
 	// Default shell
-	shell := "/bin/bash"
+	shell := "/bin/sh"
 	if config != nil && config.Shell != "" {
 		shell = config.Shell
 	}
@@ -80,12 +80,16 @@ func (r *BwrapRuntime) CreateSession(ctx context.Context, sandboxID string, conf
 
 	// Build shell command
 	var cmd *exec.Cmd
+	args := []string{"-i"}
+	if strings.Contains(shell, "bash") {
+		args = []string{"--norc", "--noprofile", "-i"}
+	}
 	if r.isLinux && state.fuseMountPoint != "" {
 		// On Linux, use bwrap with shell
-		cmd = r.buildBwrapShellCommand(sessionCtx, state.config, shell, state.fuseMountPoint)
+		cmd = r.buildBwrapShellCommand(sessionCtx, state.config, shell, args, state.fuseMountPoint)
 	} else {
 		// Compatibility mode: direct shell
-		cmd = exec.CommandContext(sessionCtx, shell, "--norc", "--noprofile", "-i")
+		cmd = exec.CommandContext(sessionCtx, shell, args...)
 		if state.fuseMountPoint != "" {
 			cmd.Dir = state.fuseMountPoint
 		} else if state.config.CodebasePath != "" {
@@ -153,7 +157,7 @@ func (r *BwrapRuntime) CreateSession(ctx context.Context, sandboxID string, conf
 }
 
 // buildBwrapShellCommand builds a bwrap command for a persistent shell.
-func (r *BwrapRuntime) buildBwrapShellCommand(ctx context.Context, config *rt.SandboxConfig, shell string, fuseMountPoint string) *exec.Cmd {
+func (r *BwrapRuntime) buildBwrapShellCommand(ctx context.Context, config *rt.SandboxConfig, shell string, shellArgs []string, fuseMountPoint string) *exec.Cmd {
 	args := []string{
 		"--ro-bind", "/usr", "/usr",
 		"--ro-bind", "/lib", "/lib",
@@ -185,7 +189,8 @@ func (r *BwrapRuntime) buildBwrapShellCommand(ctx context.Context, config *rt.Sa
 	}
 
 	// Add shell with options for non-interactive initialization
-	args = append(args, shell, "--norc", "--noprofile", "-i")
+	args = append(args, shell)
+	args = append(args, shellArgs...)
 
 	return exec.CommandContext(ctx, r.config.BwrapPath, args...)
 }

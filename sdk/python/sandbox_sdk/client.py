@@ -629,7 +629,7 @@ class SandboxClient:
     def create_session(
         self,
         sandbox_id: str,
-        shell: str = "/bin/bash",
+        shell: str = "/bin/sh",
         env: Optional[Dict[str, str]] = None,
     ) -> SessionWrapper:
         """Create a new shell session within a sandbox.
@@ -667,7 +667,7 @@ class SandboxClient:
     def session(
         self,
         sandbox_id: str,
-        shell: str = "/bin/bash",
+        shell: str = "/bin/sh",
         env: Optional[Dict[str, str]] = None,
     ) -> SessionWrapper:
         """Create a session with context manager support (alias for create_session).

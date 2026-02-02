@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/ajaxzhan/sandbox-rls/internal/codebase"
@@ -44,6 +45,11 @@ func main() {
 	}
 	if *runtimeType != "" {
 		cfg.Runtime.Type = *runtimeType
+	}
+
+	// Convert storage paths to absolute paths (required for Docker bind mounts)
+	if err := normalizeStoragePaths(cfg); err != nil {
+		log.Fatalf("Failed to normalize storage paths: %v", err)
 	}
 
 	log.Printf("Starting sandbox server...")
@@ -101,6 +107,38 @@ func main() {
 			log.Fatalf("Server failed: %v", err)
 		}
 	}
+}
+
+// normalizeStoragePaths converts all storage paths to absolute paths.
+// This is required for Docker bind mounts which must use absolute paths.
+func normalizeStoragePaths(cfg *config.Config) error {
+	var err error
+	
+	// Convert CodebasePath to absolute
+	if cfg.Storage.CodebasePath != "" && !filepath.IsAbs(cfg.Storage.CodebasePath) {
+		cfg.Storage.CodebasePath, err = filepath.Abs(cfg.Storage.CodebasePath)
+		if err != nil {
+			return err
+		}
+	}
+	
+	// Convert MountPath to absolute
+	if cfg.Storage.MountPath != "" && !filepath.IsAbs(cfg.Storage.MountPath) {
+		cfg.Storage.MountPath, err = filepath.Abs(cfg.Storage.MountPath)
+		if err != nil {
+			return err
+		}
+	}
+	
+	// Convert DBPath to absolute
+	if cfg.Storage.DBPath != "" && !filepath.IsAbs(cfg.Storage.DBPath) {
+		cfg.Storage.DBPath, err = filepath.Abs(cfg.Storage.DBPath)
+		if err != nil {
+			return err
+		}
+	}
+	
+	return nil
 }
 
 // createRuntime creates a runtime instance based on configuration.
