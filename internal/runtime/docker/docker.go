@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"golang.org/x/sys/unix"
 )
 
 // Config holds configuration for the DockerRuntime.
@@ -55,6 +57,71 @@ func DefaultConfig() *Config {
 		NetworkMode:      "none",
 		EnableNetworking: false,
 	}
+}
+
+const defaultFuseMountTimeout = 30 * time.Second
+
+func fuseMountTimeout() time.Duration {
+	// On macOS, go-fuse waits for mount_macfuse/mount_osxfuse to finish
+	// negotiating INIT/STATFS, which can regularly exceed 5 seconds (especially
+	// on first mount or under load).
+	if runtime.GOOS == "darwin" {
+		return 60 * time.Second
+	}
+	return defaultFuseMountTimeout
+}
+
+func forceUnmount(path string) {
+	if path == "" {
+		return
+	}
+
+	// Best-effort unmount with a few retries. This is intentionally defensive:
+	// if a mount attempt "finishes late" (after caller timed out), we must not
+	// leave stale mounts behind that later cause EBUSY/resource busy.
+	delay := 5 * time.Millisecond
+	for try := 0; try < 10; try++ {
+		err := unix.Unmount(path, 0)
+		if err == nil || err == unix.EINVAL || err == unix.ENOENT {
+			return
+		}
+		if runtime.GOOS == "darwin" && err == unix.EBUSY {
+			// Force unmount on macOS if the mount is busy.
+			_ = unix.Unmount(path, unix.MNT_FORCE)
+		}
+		time.Sleep(delay)
+		delay = 2*delay + 5*time.Millisecond
+	}
+}
+
+func cleanupStaleFuseMounts(base string) {
+	if base == "" {
+		return
+	}
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		mp := filepath.Join(base, e.Name())
+		forceUnmount(mp)
+		_ = os.RemoveAll(mp)
+	}
+}
+
+// isNoSuchFileError checks if the error indicates the file/directory doesn't exist.
+// This is used to filter out expected errors during cleanup when the mount directory
+// has already been removed.
+func isNoSuchFileError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "no such file or directory") ||
+		strings.Contains(errStr, "does not exist")
 }
 
 // sandboxState holds internal state for a sandbox.
@@ -107,6 +174,10 @@ func New(config *Config) (*DockerRuntime, error) {
 	// Ensure FUSE mount base directory exists
 	if config.FUSEMountBase != "" {
 		os.MkdirAll(config.FUSEMountBase, 0755)
+		// The runtime currently does not persist sandbox state across restarts.
+		// If the server crashes or mount/unmount races occur, we can end up with
+		// stale mounts that break all subsequent runs with "resource busy".
+		cleanupStaleFuseMounts(config.FUSEMountBase)
 	}
 
 	return &DockerRuntime{
@@ -189,6 +260,9 @@ func (r *DockerRuntime) Start(ctx context.Context, sandboxID string) error {
 	if state.config.CodebasePath != "" {
 		// Create FUSE mount point directory
 		fuseMountPoint = filepath.Join(r.config.FUSEMountBase, sandboxID)
+		// If we somehow have a stale mountpoint from a previous failed attempt,
+		// try to clean it up before proceeding.
+		forceUnmount(fuseMountPoint)
 		if err := os.MkdirAll(fuseMountPoint, 0755); err != nil {
 			return fmt.Errorf("failed to create FUSE mount point: %w", err)
 		}
@@ -212,7 +286,12 @@ func (r *DockerRuntime) Start(ctx context.Context, sandboxID string) error {
 
 		go func() {
 			if err := sandboxFS.MountWithReady(fuseCtx, fuseReady); err != nil && err != context.Canceled {
-				fmt.Printf("FUSE mount error for sandbox %s: %v\n", sandboxID, err)
+				// Ignore "no such file or directory" errors that occur during normal cleanup.
+				// This happens when Destroy() removes the mount directory before the FUSE
+				// goroutine finishes unmounting - it's expected behavior, not a real error.
+				if !os.IsNotExist(err) && !isNoSuchFileError(err) {
+					fmt.Printf("FUSE mount error for sandbox %s: %v\n", sandboxID, err)
+				}
 			}
 		}()
 
@@ -224,9 +303,19 @@ func (r *DockerRuntime) Start(ctx context.Context, sandboxID string) error {
 				os.RemoveAll(fuseMountPoint)
 				return fmt.Errorf("FUSE mount failed: %w", err)
 			}
-		case <-time.After(5 * time.Second):
+		case <-time.After(fuseMountTimeout()):
 			fuseCancel()
-			os.RemoveAll(fuseMountPoint)
+			// If the mount finishes after we time out, the mount goroutine will
+			// attempt to unmount (and might fail with EBUSY). Ensure we clean up
+			// late mounts to avoid accumulating stale mountpoints.
+			go func(mp string, ready <-chan error) {
+				select {
+				case <-ready:
+				case <-time.After(2 * time.Minute):
+				}
+				forceUnmount(mp)
+				_ = os.RemoveAll(mp)
+			}(fuseMountPoint, fuseReady)
 			return fmt.Errorf("FUSE mount timeout")
 		}
 
@@ -252,6 +341,7 @@ func (r *DockerRuntime) Start(ctx context.Context, sandboxID string) error {
 		}
 		if fuseMountPoint != "" {
 			time.Sleep(100 * time.Millisecond)
+			forceUnmount(fuseMountPoint)
 			os.RemoveAll(fuseMountPoint)
 		}
 		return fmt.Errorf("failed to create container: %w", err)
@@ -269,6 +359,7 @@ func (r *DockerRuntime) Start(ctx context.Context, sandboxID string) error {
 		}
 		if fuseMountPoint != "" {
 			time.Sleep(100 * time.Millisecond)
+			forceUnmount(fuseMountPoint)
 			os.RemoveAll(fuseMountPoint)
 		}
 		return fmt.Errorf("failed to start container: %w", err)
@@ -439,6 +530,7 @@ func (r *DockerRuntime) Stop(ctx context.Context, sandboxID string) error {
 
 	// Clean up mount point directory
 	if state.fuseMountPoint != "" {
+		forceUnmount(state.fuseMountPoint)
 		os.RemoveAll(state.fuseMountPoint)
 		state.fuseMountPoint = ""
 	}
@@ -487,6 +579,7 @@ func (r *DockerRuntime) Destroy(ctx context.Context, sandboxID string) error {
 
 	// Clean up mount point directory
 	if state.fuseMountPoint != "" {
+		forceUnmount(state.fuseMountPoint)
 		os.RemoveAll(state.fuseMountPoint)
 	}
 

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/ajaxzhan/sandbox-rls/internal/fs"
 	rt "github.com/ajaxzhan/sandbox-rls/internal/runtime"
 	"github.com/ajaxzhan/sandbox-rls/pkg/types"
+	"golang.org/x/sys/unix"
 )
 
 // Config holds configuration for the BwrapRuntime.
@@ -48,11 +50,52 @@ func DefaultConfig() *Config {
 	}
 }
 
+const defaultFuseMountTimeout = 30 * time.Second
+
+func fuseMountTimeout() time.Duration {
+	// Even on Linux, first-time mounts can be slower than a hardcoded 5 seconds.
+	// Align with DefaultTimeout while keeping a separate knob.
+	if runtime.GOOS == "darwin" {
+		return 60 * time.Second
+	}
+	return defaultFuseMountTimeout
+}
+
+func forceUnmount(path string) {
+	if path == "" {
+		return
+	}
+	delay := 5 * time.Millisecond
+	for try := 0; try < 10; try++ {
+		err := unix.Unmount(path, 0)
+		if err == nil || err == unix.EINVAL || err == unix.ENOENT {
+			return
+		}
+		if runtime.GOOS == "darwin" && err == unix.EBUSY {
+			_ = unix.Unmount(path, unix.MNT_FORCE)
+		}
+		time.Sleep(delay)
+		delay = 2*delay + 5*time.Millisecond
+	}
+}
+
+// isNoSuchFileError checks if the error indicates the file/directory doesn't exist.
+// This is used to filter out expected errors during cleanup when the mount directory
+// has already been removed.
+func isNoSuchFileError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "no such file or directory") ||
+		strings.Contains(errStr, "does not exist")
+}
+
 // sandboxState holds internal state for a sandbox.
 type sandboxState struct {
 	sandbox        *types.Sandbox
 	config         *rt.SandboxConfig
-	cmd            *exec.Cmd          // The running process (if any)
+	cmd            *exec.Cmd // The running process (if any)
 	cancel         context.CancelFunc
 	fuseFS         *fs.SandboxFS      // FUSE filesystem instance
 	fuseCancel     context.CancelFunc // Cancel function for FUSE mount
@@ -153,6 +196,7 @@ func (r *BwrapRuntime) Start(ctx context.Context, sandboxID string) error {
 	if r.isLinux && state.config.CodebasePath != "" {
 		// Create FUSE mount point directory
 		fuseMountPoint := filepath.Join(r.config.FUSEMountBase, sandboxID)
+		forceUnmount(fuseMountPoint)
 		if err := os.MkdirAll(fuseMountPoint, 0755); err != nil {
 			return fmt.Errorf("failed to create FUSE mount point: %w", err)
 		}
@@ -187,8 +231,12 @@ func (r *BwrapRuntime) Start(ctx context.Context, sandboxID string) error {
 		go func() {
 			// This blocks until fuseCtx is cancelled, but signals ready via channel
 			if err := sandboxFS.MountWithReady(fuseCtx, fuseReady); err != nil && err != context.Canceled {
-				// Log error but don't fail - the context was cancelled
-				fmt.Printf("FUSE mount error for sandbox %s: %v\n", sandboxID, err)
+				// Ignore "no such file or directory" errors that occur during normal cleanup.
+				// This happens when Destroy() removes the mount directory before the FUSE
+				// goroutine finishes unmounting - it's expected behavior, not a real error.
+				if !os.IsNotExist(err) && !isNoSuchFileError(err) {
+					fmt.Printf("FUSE mount error for sandbox %s: %v\n", sandboxID, err)
+				}
 			}
 		}()
 
@@ -200,9 +248,16 @@ func (r *BwrapRuntime) Start(ctx context.Context, sandboxID string) error {
 				os.RemoveAll(fuseMountPoint)
 				return fmt.Errorf("FUSE mount failed: %w", err)
 			}
-		case <-time.After(5 * time.Second):
+		case <-time.After(fuseMountTimeout()):
 			fuseCancel()
-			os.RemoveAll(fuseMountPoint)
+			go func(mp string, ready <-chan error) {
+				select {
+				case <-ready:
+				case <-time.After(2 * time.Minute):
+				}
+				forceUnmount(mp)
+				_ = os.RemoveAll(mp)
+			}(fuseMountPoint, fuseReady)
 			return fmt.Errorf("FUSE mount timeout")
 		}
 
@@ -265,6 +320,7 @@ func (r *BwrapRuntime) Stop(ctx context.Context, sandboxID string) error {
 
 	// Clean up mount point directory
 	if state.fuseMountPoint != "" {
+		forceUnmount(state.fuseMountPoint)
 		os.RemoveAll(state.fuseMountPoint)
 		state.fuseMountPoint = ""
 	}
@@ -309,6 +365,7 @@ func (r *BwrapRuntime) Destroy(ctx context.Context, sandboxID string) error {
 
 	// Clean up mount point directory
 	if state.fuseMountPoint != "" {
+		forceUnmount(state.fuseMountPoint)
 		os.RemoveAll(state.fuseMountPoint)
 	}
 
