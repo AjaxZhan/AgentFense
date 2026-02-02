@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ajaxzhan/sandbox-rls/internal/fs"
+	"github.com/ajaxzhan/sandbox-rls/internal/logging"
 	rt "github.com/ajaxzhan/sandbox-rls/internal/runtime"
 	"github.com/ajaxzhan/sandbox-rls/pkg/types"
 	"golang.org/x/sys/unix"
@@ -235,7 +236,10 @@ func (r *BwrapRuntime) Start(ctx context.Context, sandboxID string) error {
 				// This happens when Destroy() removes the mount directory before the FUSE
 				// goroutine finishes unmounting - it's expected behavior, not a real error.
 				if !os.IsNotExist(err) && !isNoSuchFileError(err) {
-					fmt.Printf("FUSE mount error for sandbox %s: %v\n", sandboxID, err)
+					logging.Error("FUSE mount error",
+						logging.String("sandbox_id", sandboxID),
+						logging.Err(err),
+					)
 				}
 			}
 		}()
@@ -466,7 +470,10 @@ func (r *BwrapRuntime) Exec(ctx context.Context, sandboxID string, req *types.Ex
 			// Sync delta even on non-zero exit (command completed, just with error code)
 			if fuseFS != nil && fuseFS.DeltaEnabled() {
 				if syncErr := fuseFS.Sync(); syncErr != nil {
-					fmt.Printf("warning: sync delta failed for sandbox %s: %v\n", sandboxID, syncErr)
+					logging.Warn("Sync delta failed",
+						logging.String("sandbox_id", sandboxID),
+						logging.Err(syncErr),
+					)
 				}
 			}
 			return result, nil
@@ -481,7 +488,10 @@ func (r *BwrapRuntime) Exec(ctx context.Context, sandboxID string, req *types.Ex
 	// Sync delta changes to shared storage after successful exec
 	if fuseFS != nil && fuseFS.DeltaEnabled() {
 		if syncErr := fuseFS.Sync(); syncErr != nil {
-			fmt.Printf("warning: sync delta failed for sandbox %s: %v\n", sandboxID, syncErr)
+			logging.Warn("Sync delta failed",
+				logging.String("sandbox_id", sandboxID),
+				logging.Err(syncErr),
+			)
 		}
 	}
 
@@ -563,7 +573,10 @@ func (r *BwrapRuntime) ExecStream(ctx context.Context, sandboxID string, req *ty
 	// Sync delta changes to shared storage after command completes
 	if fuseFS != nil && fuseFS.DeltaEnabled() {
 		if syncErr := fuseFS.Sync(); syncErr != nil {
-			fmt.Printf("warning: sync delta failed for sandbox %s: %v\n", sandboxID, syncErr)
+			logging.Warn("Sync delta failed",
+				logging.String("sandbox_id", sandboxID),
+				logging.Err(syncErr),
+			)
 		}
 	}
 

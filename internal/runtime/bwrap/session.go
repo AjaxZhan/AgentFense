@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ajaxzhan/sandbox-rls/internal/logging"
 	rt "github.com/ajaxzhan/sandbox-rls/internal/runtime"
 	"github.com/ajaxzhan/sandbox-rls/pkg/types"
 	"github.com/creack/pty"
@@ -328,7 +329,10 @@ func (r *BwrapRuntime) SessionExec(ctx context.Context, sessionID string, req *t
 	defer func() {
 		if sandboxOk && sandboxState.fuseFS != nil && sandboxState.fuseFS.DeltaEnabled() {
 			if syncErr := sandboxState.fuseFS.Sync(); syncErr != nil {
-				fmt.Printf("warning: sync delta failed for session %s: %v\n", sessionID, syncErr)
+				logging.Warn("Sync delta failed",
+					logging.String("session_id", sessionID),
+					logging.Err(syncErr),
+				)
 			}
 		}
 	}()

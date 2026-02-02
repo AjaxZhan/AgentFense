@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ajaxzhan/sandbox-rls/internal/fs"
+	"github.com/ajaxzhan/sandbox-rls/internal/logging"
 	rt "github.com/ajaxzhan/sandbox-rls/internal/runtime"
 	"github.com/ajaxzhan/sandbox-rls/pkg/types"
 	"github.com/docker/docker/api/types/container"
@@ -290,7 +291,10 @@ func (r *DockerRuntime) Start(ctx context.Context, sandboxID string) error {
 				// This happens when Destroy() removes the mount directory before the FUSE
 				// goroutine finishes unmounting - it's expected behavior, not a real error.
 				if !os.IsNotExist(err) && !isNoSuchFileError(err) {
-					fmt.Printf("FUSE mount error for sandbox %s: %v\n", sandboxID, err)
+					logging.Error("FUSE mount error",
+						logging.String("sandbox_id", sandboxID),
+						logging.Err(err),
+					)
 				}
 			}
 		}()
@@ -515,7 +519,10 @@ func (r *DockerRuntime) Stop(ctx context.Context, sandboxID string) error {
 		stopOptions := container.StopOptions{Timeout: &timeout}
 		if err := r.client.ContainerStop(ctx, state.containerID, stopOptions); err != nil {
 			// Log but don't fail - container might already be stopped
-			fmt.Printf("Warning: failed to stop container %s: %v\n", state.containerID, err)
+			logging.Warn("Failed to stop container",
+				logging.String("container_id", state.containerID),
+				logging.Err(err),
+			)
 		}
 	}
 
@@ -565,7 +572,10 @@ func (r *DockerRuntime) Destroy(ctx context.Context, sandboxID string) error {
 		}
 		if err := r.client.ContainerRemove(ctx, state.containerID, removeOptions); err != nil {
 			// Log but don't fail - container might not exist
-			fmt.Printf("Warning: failed to remove container %s: %v\n", state.containerID, err)
+			logging.Warn("Failed to remove container",
+				logging.String("container_id", state.containerID),
+				logging.Err(err),
+			)
 		}
 	}
 

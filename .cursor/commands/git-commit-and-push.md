@@ -40,6 +40,7 @@ Create a short, focused commit message and commit staged changes. Then push curr
 - **Capitalize:** First letter of summary should be capitalized
 - **No period:** Don't end the subject line with a period
 - **Describe why:** Not just what - "fix stuff" is meaningless
+- **Never add another Co-author named cursoragent!!!**
 
 ## Notes
 
