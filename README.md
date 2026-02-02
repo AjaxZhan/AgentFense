@@ -1,6 +1,6 @@
 # Sandbox RLS
 
-Fine-grained filesystem permissions for AI agent sandboxes. 
+> Sandbox with fine-grained file access control for AI Agents
 
 Sandbox RLS lets you run untrusted AI agent code **against a real codebase** while enforcing **path-based, least-privilege access** at the file level.
 
@@ -83,9 +83,7 @@ Rule priority: **more specific wins** (file-level > directory-level > glob).
 - **Stateful sessions**: persistent shell sessions that maintain working directory and environment variables
 - **Resource limits**: memory, CPU, and process count limits (via Docker runtime)
 - **Multi-sandbox codebase sharing**: same folder can be mounted by multiple agents with different permissions
-- **One-liner API**: `Sandbox.from_local("./project")` creates sandbox instantly from local directory
 - **Permission presets**: built-in presets like `agent-safe` that hide secrets automatically
-- **Semantic error handling**: typed exceptions like `CommandTimeoutError`, `PermissionDeniedError`
 
 ## Comparison
 
@@ -485,7 +483,7 @@ print("Cleanup complete!")
 | `read`     | ✅ Visible  | ✅ Success   | ❌ EACCES        |
 | `write`    | ✅ Visible  | ✅ Success   | ✅ Success       |
 
-#### Option 3: Using Go SDK [TODO]
+#### [TODO] Option 3: Using Go SDK 
 
 ```go
 package main
