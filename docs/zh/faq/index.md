@@ -117,7 +117,7 @@ FUSE 增加的开销很小：
 3. 检查服务器日志中的权限拒绝
 4. 使用 `full-access` 预设测试，以隔离权限与其他问题
 
-查看 [权限指南](../security/permissions.md#troubleshooting)。
+查看 [权限指南](../security/permissions.md)。
 
 ### 可以使用现有的 Docker 镜像吗？
 

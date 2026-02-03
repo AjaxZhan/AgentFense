@@ -432,6 +432,6 @@ AgentFense enforces permissions at the **kernel level** (FUSE filesystem)—even
 
 ## Next Steps
 
-- **Try AgentFense**: [Quick Start](../quickstart.md)
+- **Try AgentFense**: [Quick Start](../get-started/quickstart.md)
 - **See real scenarios**: [Use Cases](./use-cases.md)
 - **Understand internals**: [Architecture](./architecture.md)

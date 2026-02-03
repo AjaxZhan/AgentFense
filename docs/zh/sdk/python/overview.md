@@ -142,7 +142,7 @@ pip install -e .
 
 - Python 3.8+
 - gRPC(自动安装)
-- 运行中的 AgentFense 服务器(参见[服务器设置](../../getting-started/installation.md))
+- 运行中的 AgentFense 服务器(参见[服务器设置](../../get-started/installation.md))
 
 ---
 

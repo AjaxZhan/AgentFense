@@ -77,19 +77,6 @@ plugins:
             SDK Documentation: SDK 文档
             API Reference: API 参考
             FAQ: 常见问题
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [sdk/python]
-          options:
-            docstring_style: google
-            show_source: true
-            show_root_heading: true
-            show_root_full_path: false
-            show_signature_annotations: true
-            separate_signature: true
-            merge_init_into_class: true
-            show_if_no_docstring: false
 
 markdown_extensions:
   # Python Markdown

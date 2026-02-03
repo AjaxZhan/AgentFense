@@ -4,18 +4,6 @@ Sessions provide **stateful command execution** in AgentFense sandboxes. This gu
 
 ---
 
-## Table of Contents
-
-- [What is a Session?](#what-is-a-session)
-- [Why Use Sessions?](#why-use-sessions)
-- [Creating Sessions](#creating-sessions)
-- [Session State Management](#session-state-management)
-- [Common Use Cases](#common-use-cases)
-- [Session vs Direct Execution](#session-vs-direct-execution)
-- [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
-
----
 
 ## What is a Session?
 
@@ -572,4 +560,4 @@ result = sandbox.exec("python", stdin="print(1+1)\nexit()\n")
 
 - [High-Level API Guide](./high-level.md) - `Sandbox` class reference
 - [Async API Guide](./async.md) - Async session usage
-- [Best Practices](../best-practices.md) - General SDK recommendations
+- [Best Practices](../../security/best-practices.md) - General SDK recommendations

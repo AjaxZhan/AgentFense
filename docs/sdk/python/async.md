@@ -4,19 +4,6 @@ The `AsyncSandbox` and `AsyncSandboxClient` classes provide fully async/await co
 
 ---
 
-## Table of Contents
-
-- [When to Use Async](#when-to-use-async)
-- [AsyncSandbox Overview](#asyncsandbox-overview)
-- [Creating Async Sandboxes](#creating-async-sandboxes)
-- [Concurrent Execution Patterns](#concurrent-execution-patterns)
-- [Async Sessions](#async-sessions)
-- [AsyncSandboxClient (Low-Level)](#asyncsandboxclient-low-level)
-- [Performance Comparison](#performance-comparison)
-- [Best Practices](#best-practices)
-- [Migration from Sync](#migration-from-sync)
-
----
 
 ## When to Use Async
 

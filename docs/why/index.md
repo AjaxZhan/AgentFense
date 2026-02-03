@@ -229,7 +229,7 @@ You get **defense in depth**: even if the agent is malicious, it cannot escape t
 
 ## Next Steps
 
-- **Try it in 5 minutes**: [Quick Start](../quickstart.md)
+- **Try it in 5 minutes**: [Quick Start](../get-started/quickstart.md)
 - **See real scenarios**: [Use Cases](./use-cases.md)
 - **Compare solutions**: [AgentFense vs. Alternatives](./comparison.md)
 - **Understand how it works**: [Architecture](./architecture.md)

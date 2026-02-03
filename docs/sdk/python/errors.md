@@ -4,19 +4,6 @@ The AgentFense SDK uses **semantic exceptions** to provide clear, actionable err
 
 ---
 
-## Table of Contents
-
-- [Exception Hierarchy](#exception-hierarchy)
-- [Core Exceptions](#core-exceptions)
-- [Command Exceptions](#command-exceptions)
-- [Sandbox Exceptions](#sandbox-exceptions)
-- [Codebase Exceptions](#codebase-exceptions)
-- [Session Exceptions](#session-exceptions)
-- [Resource Exceptions](#resource-exceptions)
-- [Handling Patterns](#handling-patterns)
-- [Best Practices](#best-practices)
-
----
 
 ## Exception Hierarchy
 
@@ -750,4 +737,4 @@ finally:
 
 - [High-Level API Guide](./high-level.md) - Sandbox API reference
 - [Permissions Guide](./permissions.md) - Understanding PermissionDeniedError
-- [Best Practices](../best-practices.md) - General SDK recommendations
+- [Best Practices](../../security/best-practices.md) - General SDK recommendations

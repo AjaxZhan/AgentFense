@@ -4,19 +4,6 @@ AgentFense provides **path-level access control** for sandbox file operations. T
 
 ---
 
-## Table of Contents
-
-- [Permission Levels](#permission-levels)
-- [Permission Rules](#permission-rules)
-- [Pattern Types](#pattern-types)
-- [Built-in Presets](#built-in-presets)
-- [Custom Permissions](#custom-permissions)
-- [Extending Presets](#extending-presets)
-- [Rule Priority](#rule-priority)
-- [Common Patterns](#common-patterns)
-- [Best Practices](#best-practices)
-
----
 
 ## Permission Levels
 
@@ -684,4 +671,4 @@ with Sandbox.from_local("./ml-project", preset="data-science") as sandbox:
 
 - [High-Level API Guide](./high-level.md) - Using permissions with Sandbox
 - [Error Handling Guide](./errors.md) - Permission-related exceptions
-- [Best Practices](../best-practices.md) - Security guidelines
+- [Best Practices](../../security/best-practices.md) - Security guidelines

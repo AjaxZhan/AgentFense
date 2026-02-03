@@ -117,7 +117,7 @@ See [Installation](../get-started/installation.md) for setup instructions.
 3. Check server logs for permission denials
 4. Test with `full-access` preset to isolate permission vs. other issues
 
-See [Permissions Guide](../security/permissions.md#troubleshooting).
+See [Permissions Guide](../security/permissions.md#debugging-permission-rules).
 
 ### Can I use AgentFense with existing Docker images?
 

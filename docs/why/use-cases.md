@@ -478,6 +478,6 @@ Plugin Installation Prompt:
 
 ## Next Steps
 
-- **Start building**: [Quick Start Guide](../quickstart.md)
+- **Start building**: [Quick Start Guide](../get-started/quickstart.md)
 - **Compare alternatives**: [AgentFense vs. Docker/E2B](./comparison.md)
 - **Deep dive**: [How It Works (Architecture)](./architecture.md)

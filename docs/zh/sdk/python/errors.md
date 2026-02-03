@@ -4,19 +4,6 @@ AgentFense SDK 使用**语义化异常**提供清晰、可操作的错误信息�
 
 ---
 
-## 目录
-
-- [异常层次结构](#异常层次结构)
-- [核心异常](#核心异常)
-- [命令异常](#命令异常)
-- [沙盒异常](#沙盒异常)
-- [代码库异常](#代码库异常)
-- [Session 异常](#session-异常)
-- [资源异常](#资源异常)
-- [处理模式](#处理模式)
-- [最佳实践](#最佳实践)
-
----
 
 ## 异常层次结构
 
@@ -750,4 +737,4 @@ finally:
 
 - [高层 API 指南](./high-level.md) - Sandbox API 参考
 - [权限指南](./permissions.md) - 理解 PermissionDeniedError
-- [最佳实践](../best-practices.md) - SDK 通用建议
+- [最佳实践](../../security/best-practices.md) - SDK 通用建议

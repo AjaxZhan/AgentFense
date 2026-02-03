@@ -4,18 +4,6 @@ Sessions 在 AgentFense 沙盒中提供**有状态的命令执行**。本指南�
 
 ---
 
-## 目录
-
-- [什么是 Session?](#什么是-session)
-- [为什么使用 Session?](#为什么使用-session)
-- [创建 Session](#创建-session)
-- [Session 状态管理](#session-状态管理)
-- [常见用例](#常见用例)
-- [Session vs 直接执行](#session-vs-直接执行)
-- [最佳实践](#最佳实践)
-- [故障排除](#故障排除)
-
----
 
 ## 什么是 Session?
 
@@ -572,4 +560,4 @@ result = sandbox.exec("python", stdin="print(1+1)\nexit()\n")
 
 - [高层 API 指南](./high-level.md) - `Sandbox` 类参考
 - [异步 API 指南](./async.md) - 异步 session 使用
-- [最佳实践](../best-practices.md) - SDK 通用建议
+- [最佳实践](../../security/best-practices.md) - SDK 通用建议

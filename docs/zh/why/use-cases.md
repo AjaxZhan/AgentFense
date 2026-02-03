@@ -478,6 +478,6 @@ with Sandbox.from_local(
 
 ## 下一步
 
-- **开始构建**: [快速开始指南](../quickstart.md)
+- **开始构建**: [快速开始指南](../get-started/quickstart.md)
 - **对比替代方案**: [AgentFense vs. Docker/E2B](./comparison.md)
 - **深入了解**: [工作原理(架构)](./architecture.md)

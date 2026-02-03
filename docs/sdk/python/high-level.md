@@ -4,20 +4,6 @@ The `Sandbox` class provides the simplest way to create and manage sandboxes wit
 
 ---
 
-## Table of Contents
-
-- [Creating Sandboxes](#creating-sandboxes)
-  - [from_local()](#from_local)
-  - [from_codebase()](#from_codebase)
-  - [connect()](#connect)
-- [Lifecycle Management](#lifecycle-management)
-- [Executing Commands](#executing-commands)
-- [Working with Sessions](#working-with-sessions)
-- [File Operations](#file-operations)
-- [Properties](#properties)
-- [Complete Examples](#complete-examples)
-
----
 
 ## Creating Sandboxes
 

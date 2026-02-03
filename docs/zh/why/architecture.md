@@ -529,7 +529,7 @@ cat: .env: No such file or directory  ← Agent 零知识
 
 ## 下一步
 
-- **动手试用**: [快速开始](../quickstart.md)
+- **动手试用**: [快速开始](../get-started/quickstart.md)
 - **真实场景**: [使用场景](./use-cases.md)
 - **对比替代方案**: [vs. Docker/E2B](./comparison.md)
 - **贡献**: [GitHub 仓库](https://github.com/AjaxZhan/AgentFense)

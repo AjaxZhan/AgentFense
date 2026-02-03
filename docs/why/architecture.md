@@ -529,7 +529,7 @@ cat: .env: No such file or directory  ← Agent has zero knowledge
 
 ## Next Steps
 
-- **Try it hands-on**: [Quick Start](../quickstart.md)
+- **Try it hands-on**: [Quick Start](../get-started/quickstart.md)
 - **Real-world scenarios**: [Use Cases](./use-cases.md)
 - **Compare alternatives**: [vs. Docker/E2B](./comparison.md)
 - **Contribute**: [GitHub Repository](https://github.com/AjaxZhan/AgentFense)

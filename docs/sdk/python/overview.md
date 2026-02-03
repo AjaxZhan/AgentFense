@@ -142,7 +142,7 @@ pip install -e .
 
 - Python 3.8+
 - gRPC (installed automatically)
-- Running AgentFense server (see [Server Setup](../../getting-started/installation.md))
+- Running AgentFense server (see [Server Setup](../../get-started/installation.md))
 
 ---
 
