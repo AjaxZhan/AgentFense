@@ -354,8 +354,9 @@ The `view` permission level may not work correctly on macOS with Docker Desktop 
 ## References
 
 - [FUSE is All You Need](https://jakobemmerling.de/posts/fuse-is-all-you-need/)
-- [Tursodatabase's Agentfs](https://github.com/tursodatabase/agentfs)
 - [Anthropic's Agent Skill](https://github.com/anthropics/skills)
+- [Agfs](https://github.com/c4pt0r/agfs)
+- [OpenViking](https://github.com/volcengine/OpenViking)
 
 ## License
 
